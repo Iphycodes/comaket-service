@@ -1,0 +1,92 @@
+/**
+ * orders/orders-cron.service.ts - Order Auto-Complete Cron Job
+ * ==============================================================
+ * Automatically marks delivered orders as 'completed' after the
+ * return window expires.
+ *
+ * HOW IT WORKS:
+ *   1. Runs every 30 minutes
+ *   2. Reads `maxReturnHoursBeforeAutoComplete` from platform settings (default 72h)
+ *   3. Finds all orders with status 'delivered' where `trackingInfo.deliveredAt`
+ *      is older than the configured threshold
+ *   4. Bulk-updates them to 'completed' and transitions disbursement status
+ *
+ * WHY A SEPARATE SERVICE:
+ *   Keeps cron logic out of the main OrdersService, which is already large.
+ *   This service directly uses the Order model for efficient bulk updates
+ *   instead of calling updateStatus() one-by-one (which sends emails per order).
+ */
+
+import { Injectable, Logger } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { Order, OrderDocument } from './schemas/order.schema';
+import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
+import { OrderStatus } from '@config/contants';
+
+@Injectable()
+export class OrdersCronService {
+  private readonly logger = new Logger(OrdersCronService.name);
+
+  constructor(
+    @InjectModel(Order.name) private orderModel: Model<OrderDocument>,
+    private platformSettingsService: PlatformSettingsService,
+  ) {}
+
+  /**
+   * Auto-complete delivered orders after the return window expires.
+   * Runs every 30 minutes.
+   */
+  @Cron(CronExpression.EVERY_30_MINUTES)
+  async autoCompleteDeliveredOrders(): Promise<void> {
+    try {
+      // Get the configurable threshold from platform settings
+      const settings = await this.platformSettingsService.getSettings();
+      const maxHours = settings.maxReturnHoursBeforeAutoComplete ?? 72;
+
+      // Calculate the cutoff date: orders delivered before this time should auto-complete
+      const cutoffDate = new Date();
+      cutoffDate.setHours(cutoffDate.getHours() - maxHours);
+
+      // Find and update all qualifying orders in one bulk operation
+      const result = await this.orderModel.updateMany(
+        {
+          status: OrderStatus.Delivered,
+          'trackingInfo.deliveredAt': { $lte: cutoffDate },
+        },
+        {
+          $set: {
+            status: OrderStatus.Completed,
+            adminNote: `Auto-completed after ${maxHours}h return window expired`,
+          },
+        },
+      );
+
+      // Also transition disbursement status for the affected orders
+      // (awaiting_completion → awaiting_disbursement)
+      if (result.modifiedCount > 0) {
+        await this.orderModel.updateMany(
+          {
+            status: OrderStatus.Completed,
+            adminNote: { $regex: /^Auto-completed after/ },
+            disbursementStatus: 'awaiting_completion',
+          },
+          {
+            $set: { disbursementStatus: 'awaiting_disbursement' },
+          },
+        );
+
+        this.logger.log(
+          `Auto-completed ${result.modifiedCount} delivered order(s) ` +
+            `(return window: ${maxHours}h, cutoff: ${cutoffDate.toISOString()})`,
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to auto-complete delivered orders: ${error.message}`,
+        error.stack,
+      );
+    }
+  }
+}

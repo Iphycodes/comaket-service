@@ -1,0 +1,101 @@
+import {
+  IsMongoId,
+  IsNumber,
+  Min,
+  IsOptional,
+  ValidateNested,
+  IsString,
+  IsArray,
+} from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+
+export class AddToCartDto {
+  @ApiProperty({
+    description: 'Listing ID to add',
+    example: '65e5f6a7b8c9d0e1f2a3b4c5',
+  })
+  @IsMongoId()
+  listingId: string;
+
+  @ApiPropertyOptional({ description: 'Quantity to add', default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  quantity?: number = 1;
+}
+
+export class UpdateCartItemDto {
+  @ApiProperty({ description: 'New quantity' })
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  quantity: number;
+}
+
+export class ShippingAddressDto {
+  @ApiProperty()
+  @IsString()
+  fullName: string;
+
+  @ApiProperty()
+  @IsString()
+  phoneNumber: string;
+
+  @ApiProperty()
+  @IsString()
+  address: string;
+
+  @ApiProperty()
+  @IsString()
+  city: string;
+
+  @ApiProperty()
+  @IsString()
+  state: string;
+
+  @ApiProperty()
+  @IsString()
+  country: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  zipCode?: string;
+}
+
+export class CheckoutCartDto {
+  @ApiProperty({ description: 'Shipping address' })
+  @ValidateNested()
+  @Type(() => ShippingAddressDto)
+  shippingAddress: ShippingAddressDto;
+
+  @ApiPropertyOptional({
+    description:
+      'Listing IDs to checkout. If omitted, all valid cart items are checked out.',
+    example: ['65e5f6a7b8c9d0e1f2a3b4c5'],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsMongoId({ each: true })
+  listingIds?: string[];
+
+  @ApiPropertyOptional({
+    description: 'Email for order receipts. Overrides user email if provided.',
+    example: 'buyer@example.com',
+  })
+  @IsOptional()
+  @IsString()
+  email?: string;
+
+  @ApiPropertyOptional({ description: 'Note to sellers' })
+  @IsOptional()
+  @IsString()
+  buyerNote?: string;
+
+  @ApiPropertyOptional({ description: 'Payment callback URL' })
+  @IsOptional()
+  @IsString()
+  callbackUrl?: string;
+}

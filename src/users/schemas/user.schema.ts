@@ -1,0 +1,178 @@
+/**
+ * users/schemas/user.schema.ts - User Database Model
+ * =====================================================
+ * This defines the SHAPE of a User document in MongoDB.
+ *
+ * In NestJS + Mongoose, we define schemas using decorators:
+ *   @Schema()  → marks the class as a Mongoose schema
+ *   @Prop()    → marks a field as a database column
+ *
+ * Think of this like a blueprint: every user in the database will have
+ * these fields. Mongoose enforces the types at the database level.
+ *
+ * KEY DESIGN DECISION: The User schema handles basic account info.
+ * Creator profiles and Stores are SEPARATE collections (schemas) that
+ * reference the User via userId. This keeps things clean:
+ *
+ *   User (account)
+ *     ↓ upgrades to
+ *   Creator (profile, linked by userId)
+ *     ↓ creates
+ *   Store (shop, linked by creatorId)
+ *     ↓ has
+ *   Listing (product, linked by storeId)
+ *
+ * The `role` field on User tracks whether they've upgraded to creator/admin,
+ * while the actual creator profile data lives in its own collection.
+ */
+
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Document } from 'mongoose';
+import { Exclude } from 'class-transformer';
+import { AuthProvider, UserRole } from '@config/contants';
+import { BaseSchema } from '@common/schemas/base-schema';
+
+// ─────────────────────────────────────────────────────────────
+// Type: Combines the User class with Mongoose's Document class.
+// This gives you both your custom fields AND Mongoose methods
+// like .save(), .toObject(), .populate(), etc.
+// ─────────────────────────────────────────────────────────────
+export type UserDocument = User & Document;
+
+// ─────────────────────────────────────────────────────────────
+// Embedded sub-document for phone number.
+// Not a separate collection — just a nested object inside User.
+// ─────────────────────────────────────────────────────────────
+class Mobile {
+  phoneNumber: string;
+  isoCode: string;
+}
+
+@Schema({
+  timestamps: true, // Auto-adds createdAt and updatedAt fields
+  toJSON: {
+    // Controls what happens when you call user.toJSON() or JSON.stringify(user)
+    virtuals: true, // Include virtual fields (like 'id')
+    transform: (_, ret) => {
+      delete ret.password; // NEVER send password to the client
+      delete ret.__v; // Remove Mongoose version key (noise)
+      return ret;
+    },
+  },
+  toObject: {
+    virtuals: true,
+    transform: (_, ret) => {
+      delete ret.password;
+      delete ret.__v;
+      return ret;
+    },
+  },
+})
+export class User extends BaseSchema {
+  // ─── Basic Info ──────────────────────────────────────────
+
+  @Prop({ required: true, trim: true })
+  firstName: string;
+
+  @Prop({ required: true, trim: true })
+  lastName: string;
+
+  @Prop({
+    required: true,
+    unique: true,
+    lowercase: true, // Always store email in lowercase
+    trim: true,
+  })
+  email: string;
+
+  @Prop({ required: false, select: false }) // select: false = don't include in queries by default
+  @Exclude() // Extra safety: class-transformer will also strip this
+  password?: string;
+
+  @Prop({ type: String, default: null })
+  avatar?: string;
+
+  // ─── Contact ─────────────────────────────────────────────
+
+  @Prop({
+    type: {
+      phoneNumber: { type: String },
+      isoCode: { type: String, default: 'NG' },
+    },
+    default: null,
+  })
+  mobile?: Mobile;
+
+  // ─── Role & Auth ─────────────────────────────────────────
+
+  @Prop({
+    type: String,
+    enum: Object.values(UserRole),
+    default: UserRole.User,
+  })
+  role: UserRole;
+
+  @Prop({
+    type: String,
+    enum: Object.values(AuthProvider),
+    default: AuthProvider.Local,
+  })
+  authProvider: AuthProvider;
+
+  @Prop({ default: false })
+  isEmailVerified: boolean;
+
+  @Prop({ default: false })
+  isSuspended: boolean;
+
+  // ─── Personal Details ────────────────────────────────────
+
+  @Prop({ enum: ['male', 'female', 'other', 'prefer_not_to_say'] })
+  gender?: string;
+
+  @Prop()
+  dateOfBirth?: string;
+
+  @Prop()
+  country?: string;
+
+  @Prop()
+  state?: string;
+
+  @Prop()
+  city?: string;
+
+  @Prop()
+  bio?: string;
+
+  // ─── Email Verification ──────────────────────────────────
+  // OTP-based verification (same approach as your Redymit app)
+
+  @Prop({ select: false })
+  verificationCode?: string;
+
+  @Prop({ type: Date, select: false })
+  verificationExpires?: Date;
+
+  // ─── Password Reset ──────────────────────────────────────
+
+  @Prop({ select: false })
+  passwordResetToken?: string;
+
+  @Prop({ type: Date, select: false })
+  passwordResetExpires?: Date;
+}
+
+// ─────────────────────────────────────────────────────────────
+// SchemaFactory.createForClass() converts the decorated class
+// into an actual Mongoose schema that can be used with MongoDB.
+// ─────────────────────────────────────────────────────────────
+export const UserSchema = SchemaFactory.createForClass(User);
+
+// ─────────────────────────────────────────────────────────────
+// Index: Makes email lookups fast. unique: true also prevents
+// duplicate emails at the database level (belt AND suspenders
+// with the validation in the service layer).
+// ─────────────────────────────────────────────────────────────
+UserSchema.index({ email: 1 }, { unique: true });
+UserSchema.index({ role: 1 });
