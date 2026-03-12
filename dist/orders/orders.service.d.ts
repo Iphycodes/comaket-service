@@ -1,0 +1,47 @@
+import { Model } from 'mongoose';
+import { OrderDocument } from './schemas/order.schema';
+import { StoresService } from '../stores/stores.service';
+import { CreatorsService } from '../creators/creators.service';
+import { CreateOrderDto, UpdateOrderStatusDto, QueryOrdersDto } from './dto/order.dto';
+import { PaginatedResponse } from '@common/interfaces/paginated-response.interface';
+import { NotificationsService } from '../notifications/notifications.service';
+import { ListingsService } from 'src/listings/listings.service';
+export declare class OrdersService {
+    private orderModel;
+    private listingsService;
+    private storesService;
+    private creatorsService;
+    private notificationsService;
+    constructor(orderModel: Model<OrderDocument>, listingsService: ListingsService, storesService: StoresService, creatorsService: CreatorsService, notificationsService: NotificationsService);
+    private generateOrderNumber;
+    private calculateRevenueSplit;
+    create(buyerId: string, createOrderDto: CreateOrderDto): Promise<OrderDocument>;
+    createCartOrder(buyerId: string, items: Array<{
+        listingId: string;
+        storeId: string;
+        sellerId: string;
+        creatorId: string;
+        itemName: string;
+        quantity: number;
+        unitPrice: number;
+        totalPrice: number;
+        type: string;
+        image: string | null;
+        commissionRate: number;
+    }>, shippingAddress: any, buyerNote?: string, receiptEmail?: string): Promise<OrderDocument>;
+    confirmPayment(orderId: string, paymentReference: string, paystackReference: string): Promise<OrderDocument>;
+    findByPaymentReference(reference: string): Promise<OrderDocument>;
+    findByIdInternal(orderId: string): Promise<OrderDocument>;
+    findById(orderId: string, userId: string): Promise<OrderDocument>;
+    updateStatus(orderId: string, updateDto: UpdateOrderStatusDto): Promise<OrderDocument>;
+    markDisbursed(orderId: string): Promise<OrderDocument>;
+    findBuyerOrders(buyerId: string, queryDto: QueryOrdersDto): Promise<PaginatedResponse<OrderDocument>>;
+    findSellerOrders(sellerId: string, queryDto: QueryOrdersDto): Promise<PaginatedResponse<OrderDocument>>;
+    findAll(queryDto: QueryOrdersDto): Promise<PaginatedResponse<OrderDocument>>;
+    countOrders(filter?: Record<string, any>): Promise<number>;
+    calculateRevenue(filter?: Record<string, any>): Promise<{
+        totalRevenue: number;
+        platformRevenue: number;
+        sellerPayouts: number;
+    }>;
+}

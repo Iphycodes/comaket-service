@@ -1,0 +1,609 @@
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.OrdersService = void 0;
+const common_1 = require("@nestjs/common");
+const mongoose_1 = require("@nestjs/mongoose");
+const mongoose_2 = require("mongoose");
+const order_schema_1 = require("./schemas/order.schema");
+const stores_service_1 = require("../stores/stores.service");
+const creators_service_1 = require("../creators/creators.service");
+const contants_1 = require("../config/contants");
+const notifications_service_1 = require("../notifications/notifications.service");
+const listings_service_1 = require("../listings/listings.service");
+let OrdersService = class OrdersService {
+    constructor(orderModel, listingsService, storesService, creatorsService, notificationsService) {
+        this.orderModel = orderModel;
+        this.listingsService = listingsService;
+        this.storesService = storesService;
+        this.creatorsService = creatorsService;
+        this.notificationsService = notificationsService;
+    }
+    generateOrderNumber() {
+        const date = new Date();
+        const dateStr = date.getFullYear().toString() +
+            (date.getMonth() + 1).toString().padStart(2, '0') +
+            date.getDate().toString().padStart(2, '0');
+        const suffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+        return `CMK-${dateStr}-${suffix}`;
+    }
+    calculateRevenueSplit(listing, quantity) {
+        const unitPrice = listing.adminPricing?.sellingPrice || listing.askingPrice.amount;
+        const totalAmount = unitPrice * quantity;
+        if (listing.type === contants_1.ListingType.DirectPurchase) {
+            return {
+                unitPrice,
+                totalAmount,
+                platformFee: totalAmount,
+                sellerPayout: 0,
+                commissionRate: 100,
+            };
+        }
+        if (listing.type === contants_1.ListingType.Consignment) {
+            const commissionRate = listing.adminPricing?.commissionRate ?? 15;
+            const platformFee = Math.round(totalAmount * (commissionRate / 100));
+            const sellerPayout = totalAmount - platformFee;
+            return {
+                unitPrice,
+                totalAmount,
+                platformFee,
+                sellerPayout,
+                commissionRate,
+            };
+        }
+        throw new common_1.BadRequestException('Invalid listing type for ordering');
+    }
+    async create(buyerId, createOrderDto) {
+        const { listingId, quantity, shippingAddress, buyerNote } = createOrderDto;
+        const listing = await this.listingsService.findById(listingId);
+        if (listing.userId.toString() === buyerId) {
+            throw new common_1.BadRequestException('You cannot purchase your own listing');
+        }
+        if (listing.type === contants_1.ListingType.SelfListing) {
+            throw new common_1.BadRequestException('Self-listed items cannot be purchased on the platform. ' +
+                'Please contact the seller via WhatsApp.');
+        }
+        if (listing.status !== contants_1.ListingStatus.Live) {
+            throw new common_1.BadRequestException('This listing is not available for purchase');
+        }
+        if (listing.quantity < quantity) {
+            throw new common_1.BadRequestException(`Only ${listing.quantity} item(s) available`);
+        }
+        const split = this.calculateRevenueSplit(listing, quantity);
+        const order = new this.orderModel({
+            orderNumber: this.generateOrderNumber(),
+            buyerId: new mongoose_2.Types.ObjectId(buyerId),
+            sellerId: listing.userId,
+            creatorId: listing.creatorId,
+            storeId: listing.storeId,
+            items: [
+                {
+                    listingId: listing._id,
+                    itemName: listing.itemName,
+                    quantity,
+                    unitPrice: split.unitPrice,
+                    totalPrice: split.totalAmount,
+                    type: listing.type,
+                    image: listing.media?.[0]?.url || null,
+                },
+            ],
+            subtotal: split.totalAmount,
+            shippingFee: 0,
+            discount: 0,
+            totalAmount: split.totalAmount,
+            currency: listing.askingPrice.currency,
+            revenueSplit: {
+                totalAmount: split.totalAmount,
+                platformFee: split.platformFee,
+                sellerPayout: split.sellerPayout,
+                commissionRate: split.commissionRate,
+            },
+            shippingAddress,
+            buyerNote,
+            status: contants_1.OrderStatus.Pending,
+            paymentStatus: contants_1.PaymentStatus.Pending,
+            disbursementStatus: split.sellerPayout > 0 ? 'awaiting_completion' : 'not_applicable',
+        });
+        return order.save();
+    }
+    async createCartOrder(buyerId, items, shippingAddress, buyerNote, receiptEmail) {
+        const subtotal = items.reduce((sum, i) => sum + i.totalPrice, 0);
+        let totalPlatformFee = 0;
+        let totalSellerPayout = 0;
+        for (const item of items) {
+            if (item.type === 'direct_purchase') {
+                totalPlatformFee += item.totalPrice;
+            }
+            else {
+                const fee = Math.round(item.totalPrice * (item.commissionRate / 100));
+                totalPlatformFee += fee;
+                totalSellerPayout += item.totalPrice - fee;
+            }
+        }
+        const avgCommission = subtotal > 0 ? Math.round((totalPlatformFee / subtotal) * 100) : 0;
+        const uniqueSellers = [...new Set(items.map((i) => i.sellerId))];
+        const uniqueStores = [...new Set(items.map((i) => i.storeId))];
+        const uniqueCreators = [...new Set(items.map((i) => i.creatorId))];
+        const order = new this.orderModel({
+            orderNumber: this.generateOrderNumber(),
+            buyerId: new mongoose_2.Types.ObjectId(buyerId),
+            sellerId: uniqueSellers.length === 1
+                ? new mongoose_2.Types.ObjectId(uniqueSellers[0])
+                : null,
+            creatorId: uniqueCreators.length === 1
+                ? new mongoose_2.Types.ObjectId(uniqueCreators[0])
+                : null,
+            storeId: uniqueStores.length === 1 ? new mongoose_2.Types.ObjectId(uniqueStores[0]) : null,
+            items: items.map((i) => ({
+                listingId: new mongoose_2.Types.ObjectId(i.listingId),
+                itemName: i.itemName,
+                quantity: i.quantity,
+                unitPrice: i.unitPrice,
+                totalPrice: i.totalPrice,
+                type: i.type,
+                image: i.image,
+                storeId: new mongoose_2.Types.ObjectId(i.storeId),
+                sellerId: new mongoose_2.Types.ObjectId(i.sellerId),
+                creatorId: new mongoose_2.Types.ObjectId(i.creatorId),
+                commissionRate: i.commissionRate,
+            })),
+            subtotal,
+            shippingFee: 0,
+            discount: 0,
+            totalAmount: subtotal,
+            currency: 'NGN',
+            revenueSplit: {
+                totalAmount: subtotal,
+                platformFee: totalPlatformFee,
+                sellerPayout: totalSellerPayout,
+                commissionRate: avgCommission,
+            },
+            shippingAddress,
+            buyerNote,
+            receiptEmail: receiptEmail || null,
+            status: contants_1.OrderStatus.Pending,
+            paymentStatus: contants_1.PaymentStatus.Pending,
+            disbursementStatus: totalSellerPayout > 0 ? 'awaiting_completion' : 'not_applicable',
+        });
+        return order.save();
+    }
+    async confirmPayment(orderId, paymentReference, paystackReference) {
+        const order = await this.orderModel.findById(orderId).exec();
+        if (!order) {
+            throw new common_1.NotFoundException('Order not found');
+        }
+        if (order.paymentStatus === contants_1.PaymentStatus.Success) {
+            throw new common_1.BadRequestException('Order is already paid');
+        }
+        order.paymentStatus = contants_1.PaymentStatus.Success;
+        order.status = contants_1.OrderStatus.Confirmed;
+        order.paymentInfo = {
+            method: 'paystack',
+            reference: paymentReference,
+            paystackReference,
+            paidAt: new Date(),
+            status: 'success',
+        };
+        const updatedOrder = await order.save();
+        for (const item of order.items) {
+        }
+        const processedStores = new Set();
+        const processedCreators = new Set();
+        for (const item of order.items) {
+            const itemStoreId = item.storeId?.toString() || order.storeId?.toString();
+            const itemCreatorId = item.creatorId?.toString() || order.creatorId?.toString();
+            if (itemStoreId && !processedStores.has(itemStoreId)) {
+                processedStores.add(itemStoreId);
+                await this.storesService
+                    .updateStats(itemStoreId, 'totalSales', 1)
+                    .catch(() => { });
+            }
+            if (itemCreatorId && !processedCreators.has(itemCreatorId)) {
+                processedCreators.add(itemCreatorId);
+                await this.creatorsService
+                    .updateStats(itemCreatorId, 'totalSales', 1)
+                    .catch(() => { });
+            }
+        }
+        const populatedOrder = await this.orderModel
+            .findById(orderId)
+            .populate('buyerId', 'firstName lastName email')
+            .exec();
+        if (populatedOrder) {
+            const buyer = populatedOrder.buyerId;
+            const receiptTo = updatedOrder.receiptEmail || buyer.email;
+            common_1.Logger.log(`Sending order confirmation for ${order.orderNumber} to ${receiptTo}` +
+                (updatedOrder.receiptEmail
+                    ? ` (override from checkout)`
+                    : ` (user email)`));
+            const confirmationData = {
+                buyerName: buyer.firstName,
+                orderNumber: order.orderNumber,
+                items: order.items.map((item) => ({
+                    itemName: item.itemName,
+                    quantity: item.quantity,
+                    unitPrice: item.unitPrice,
+                })),
+                totalAmount: order.totalAmount,
+                shippingAddress: order.shippingAddress,
+            };
+            try {
+                await this.notificationsService.sendOrderConfirmation(receiptTo, confirmationData);
+                common_1.Logger.log(`✅ Order confirmation sent to ${receiptTo}`);
+            }
+            catch (emailError) {
+                common_1.Logger.error(`❌ Failed to send order confirmation to ${receiptTo}: ${emailError.message}`);
+            }
+            try {
+                await this.notificationsService.sendAdminOrderCopy(confirmationData);
+            }
+            catch (adminEmailError) {
+                common_1.Logger.error(`❌ Failed to send admin copy: ${adminEmailError.message}`);
+            }
+            const sellerItemsMap = new Map();
+            for (const item of order.items) {
+                const sellerId = item.sellerId?.toString();
+                if (!sellerId)
+                    continue;
+                if (!sellerItemsMap.has(sellerId)) {
+                    sellerItemsMap.set(sellerId, { sellerId, items: [], payout: 0 });
+                }
+                const entry = sellerItemsMap.get(sellerId);
+                entry.items.push(item);
+                const commissionRate = item.commissionRate ?? 15;
+                if (item.type === 'direct_purchase') {
+                }
+                else {
+                    const fee = Math.round(item.totalPrice * (commissionRate / 100));
+                    entry.payout += item.totalPrice - fee;
+                }
+            }
+            for (const [sellerId, entry] of sellerItemsMap) {
+                if (entry.payout <= 0)
+                    continue;
+                try {
+                    const sellerUser = await this.orderModel.db
+                        .collection('users')
+                        .findOne({ _id: new mongoose_2.Types.ObjectId(sellerId) }, { projection: { firstName: 1, lastName: 1, email: 1 } });
+                    if (sellerUser) {
+                        await this.notificationsService.sendNewOrderAlert(sellerUser.email, {
+                            sellerName: sellerUser.firstName,
+                            orderNumber: order.orderNumber,
+                            itemName: entry.items.length === 1
+                                ? entry.items[0].itemName
+                                : `${entry.items.length} items`,
+                            quantity: entry.items.reduce((sum, i) => sum + i.quantity, 0),
+                            sellerPayout: entry.payout,
+                            buyerName: `${buyer.firstName} ${buyer.lastName}`,
+                        });
+                    }
+                }
+                catch (err) {
+                    common_1.Logger.error(`Failed to send seller alert to ${sellerId}: ${err.message}`);
+                }
+            }
+        }
+        return updatedOrder;
+    }
+    async findByPaymentReference(reference) {
+        const order = await this.orderModel
+            .findOne({ 'paymentInfo.reference': reference })
+            .exec();
+        if (!order) {
+            throw new common_1.NotFoundException('Order not found for this payment reference');
+        }
+        return order;
+    }
+    async findByIdInternal(orderId) {
+        const order = await this.orderModel.findById(orderId).exec();
+        if (!order) {
+            throw new common_1.NotFoundException('Order not found');
+        }
+        return order;
+    }
+    async findById(orderId, userId) {
+        const order = await this.orderModel
+            .findById(orderId)
+            .populate('buyerId', 'firstName lastName email avatar')
+            .populate('sellerId', 'firstName lastName email avatar')
+            .populate('storeId', 'name slug logo')
+            .populate({
+            path: 'creatorId',
+            select: 'username slug profileImageUrl',
+        })
+            .populate('items.storeId', 'name slug logo')
+            .exec();
+        if (!order) {
+            throw new common_1.NotFoundException('Order not found');
+        }
+        const isBuyer = order.buyerId._id?.toString() === userId;
+        const isSeller = order.sellerId?._id?.toString() === userId ||
+            order.items.some((item) => item.sellerId?.toString() === userId);
+        if (!isBuyer && !isSeller) {
+            throw new common_1.ForbiddenException('You do not have access to this order');
+        }
+        return order;
+    }
+    async updateStatus(orderId, updateDto) {
+        const order = await this.orderModel.findById(orderId).exec();
+        if (!order) {
+            throw new common_1.NotFoundException('Order not found');
+        }
+        const { status, adminNote, cancellationReason, carrier, trackingNumber, estimatedDelivery, } = updateDto;
+        const validTransitions = {
+            [contants_1.OrderStatus.Pending]: [contants_1.OrderStatus.Confirmed, contants_1.OrderStatus.Cancelled],
+            [contants_1.OrderStatus.Confirmed]: [contants_1.OrderStatus.Processing, contants_1.OrderStatus.Cancelled],
+            [contants_1.OrderStatus.Processing]: [contants_1.OrderStatus.Shipped, contants_1.OrderStatus.Cancelled],
+            [contants_1.OrderStatus.Shipped]: [contants_1.OrderStatus.Delivered],
+            [contants_1.OrderStatus.Delivered]: [contants_1.OrderStatus.Completed],
+            [contants_1.OrderStatus.Completed]: [],
+            [contants_1.OrderStatus.Cancelled]: [],
+            [contants_1.OrderStatus.Refunded]: [],
+        };
+        const allowed = validTransitions[order.status] || [];
+        if (!allowed.includes(status)) {
+            throw new common_1.BadRequestException(`Cannot transition from "${order.status}" to "${status}". ` +
+                `Allowed transitions: ${allowed.join(', ') || 'none (terminal state)'}`);
+        }
+        if (status === contants_1.OrderStatus.Cancelled && !cancellationReason) {
+            throw new common_1.BadRequestException('Cancellation reason is required when cancelling an order');
+        }
+        if (status === contants_1.OrderStatus.Shipped) {
+            order.trackingInfo = {
+                ...order.trackingInfo,
+                carrier: carrier || order.trackingInfo?.carrier,
+                trackingNumber: trackingNumber || order.trackingInfo?.trackingNumber,
+                estimatedDelivery: estimatedDelivery
+                    ? new Date(estimatedDelivery)
+                    : order.trackingInfo?.estimatedDelivery,
+                shippedAt: new Date(),
+            };
+        }
+        if (status === contants_1.OrderStatus.Delivered) {
+            order.trackingInfo = {
+                ...order.trackingInfo,
+                deliveredAt: new Date(),
+            };
+        }
+        if (status === contants_1.OrderStatus.Completed) {
+            if (order.disbursementStatus === 'awaiting_completion') {
+                order.disbursementStatus = 'awaiting_disbursement';
+            }
+        }
+        if (status === contants_1.OrderStatus.Cancelled || status === contants_1.OrderStatus.Refunded) {
+            order.disbursementStatus = 'not_applicable';
+        }
+        order.status = status;
+        if (adminNote)
+            order.adminNote = adminNote;
+        if (cancellationReason)
+            order.cancellationReason = cancellationReason;
+        const savedOrder = await order.save();
+        const populatedOrder = await this.orderModel
+            .findById(order._id)
+            .populate('buyerId', 'firstName email')
+            .exec();
+        if (populatedOrder) {
+            const buyer = populatedOrder.buyerId;
+            this.notificationsService.sendOrderStatusUpdate(buyer.email, {
+                buyerName: buyer.firstName,
+                orderNumber: order.orderNumber,
+                status,
+                trackingNumber: order.trackingInfo?.trackingNumber,
+                carrier: order.trackingInfo?.carrier,
+            });
+        }
+        return savedOrder;
+    }
+    async markDisbursed(orderId) {
+        const order = await this.orderModel.findById(orderId).exec();
+        if (!order) {
+            throw new common_1.NotFoundException('Order not found');
+        }
+        if (order.disbursementStatus !== 'awaiting_disbursement') {
+            throw new common_1.BadRequestException(`Cannot disburse an order with disbursement status "${order.disbursementStatus}". ` +
+                `Only orders with status "awaiting_disbursement" can be disbursed.`);
+        }
+        order.disbursementStatus = 'disbursed';
+        order.disbursedAt = new Date();
+        return order.save();
+    }
+    async findBuyerOrders(buyerId, queryDto) {
+        const { page, perPage, sort, search, status, paymentStatus, disbursementStatus, } = queryDto;
+        const filter = {
+            buyerId: new mongoose_2.Types.ObjectId(buyerId),
+        };
+        if (status)
+            filter.status = status;
+        if (paymentStatus)
+            filter.paymentStatus = paymentStatus;
+        if (disbursementStatus)
+            filter.disbursementStatus = disbursementStatus;
+        if (search) {
+            filter.$or = [
+                { orderNumber: { $regex: search, $options: 'i' } },
+                { 'items.itemName': { $regex: search, $options: 'i' } },
+                { 'shippingInfo.trackingNumber': { $regex: search, $options: 'i' } },
+                { 'paymentInfo.reference': { $regex: search, $options: 'i' } },
+            ];
+        }
+        const sortObj = {};
+        if (sort) {
+            const sortField = sort.startsWith('-') ? sort.substring(1) : sort;
+            sortObj[sortField] = sort.startsWith('-') ? -1 : 1;
+        }
+        else {
+            sortObj.createdAt = -1;
+        }
+        const skip = (page - 1) * perPage;
+        const [items, total] = await Promise.all([
+            this.orderModel
+                .find(filter)
+                .populate('storeId', 'name slug logo')
+                .populate('sellerId', 'firstName lastName')
+                .populate('items.storeId', 'name slug logo')
+                .sort(sortObj)
+                .skip(skip)
+                .limit(perPage)
+                .exec(),
+            this.orderModel.countDocuments(filter).exec(),
+        ]);
+        return {
+            items,
+            total,
+            page,
+            perPage,
+            totalPages: Math.ceil(total / perPage),
+        };
+    }
+    async findSellerOrders(sellerId, queryDto) {
+        const { page, perPage, sort, search, status, paymentStatus, disbursementStatus, storeId, } = queryDto;
+        const sellerOid = new mongoose_2.Types.ObjectId(sellerId);
+        const filter = {
+            $or: [{ sellerId: sellerOid }, { 'items.sellerId': sellerOid }],
+        };
+        if (status)
+            filter.status = status;
+        if (paymentStatus)
+            filter.paymentStatus = paymentStatus;
+        if (disbursementStatus)
+            filter.disbursementStatus = disbursementStatus;
+        if (storeId) {
+            const storeOid = new mongoose_2.Types.ObjectId(storeId);
+            filter.$and = [
+                { $or: [{ storeId: storeOid }, { 'items.storeId': storeOid }] },
+            ];
+            delete filter.$or;
+            filter.$and.push({
+                $or: [{ sellerId: sellerOid }, { 'items.sellerId': sellerOid }],
+            });
+        }
+        if (search) {
+            filter.$or = [
+                { orderNumber: { $regex: search, $options: 'i' } },
+                { 'items.itemName': { $regex: search, $options: 'i' } },
+                { 'shippingInfo.trackingNumber': { $regex: search, $options: 'i' } },
+                { 'paymentInfo.reference': { $regex: search, $options: 'i' } },
+            ];
+        }
+        const sortObj = {};
+        if (sort) {
+            const sortField = sort.startsWith('-') ? sort.substring(1) : sort;
+            sortObj[sortField] = sort.startsWith('-') ? -1 : 1;
+        }
+        else {
+            sortObj.createdAt = -1;
+        }
+        const skip = (page - 1) * perPage;
+        const [items, total] = await Promise.all([
+            this.orderModel
+                .find(filter)
+                .populate('buyerId', 'firstName lastName email')
+                .populate('storeId', 'name slug')
+                .sort(sortObj)
+                .skip(skip)
+                .limit(perPage)
+                .exec(),
+            this.orderModel.countDocuments(filter).exec(),
+        ]);
+        return {
+            items,
+            total,
+            page,
+            perPage,
+            totalPages: Math.ceil(total / perPage),
+        };
+    }
+    async findAll(queryDto) {
+        const { page, perPage, sort, search, status, paymentStatus, disbursementStatus, storeId, } = queryDto;
+        const filter = {};
+        if (status)
+            filter.status = status;
+        if (paymentStatus)
+            filter.paymentStatus = paymentStatus;
+        if (disbursementStatus)
+            filter.disbursementStatus = disbursementStatus;
+        if (storeId)
+            filter.storeId = new mongoose_2.Types.ObjectId(storeId);
+        if (search) {
+            filter.$or = [
+                { orderNumber: { $regex: search, $options: 'i' } },
+                { 'items.itemName': { $regex: search, $options: 'i' } },
+                { 'shippingInfo.trackingNumber': { $regex: search, $options: 'i' } },
+                { 'paymentInfo.reference': { $regex: search, $options: 'i' } },
+            ];
+        }
+        const sortObj = {};
+        if (sort) {
+            const sortField = sort.startsWith('-') ? sort.substring(1) : sort;
+            sortObj[sortField] = sort.startsWith('-') ? -1 : 1;
+        }
+        else {
+            sortObj.createdAt = -1;
+        }
+        const skip = (page - 1) * perPage;
+        const [items, total] = await Promise.all([
+            this.orderModel
+                .find(filter)
+                .populate('buyerId', 'firstName lastName email')
+                .populate('sellerId', 'firstName lastName email')
+                .populate('storeId', 'name slug')
+                .sort(sortObj)
+                .skip(skip)
+                .limit(perPage)
+                .exec(),
+            this.orderModel.countDocuments(filter).exec(),
+        ]);
+        return {
+            items,
+            total,
+            page,
+            perPage,
+            totalPages: Math.ceil(total / perPage),
+        };
+    }
+    async countOrders(filter = {}) {
+        return this.orderModel.countDocuments(filter).exec();
+    }
+    async calculateRevenue(filter = {}) {
+        const result = await this.orderModel.aggregate([
+            {
+                $match: {
+                    ...filter,
+                    paymentStatus: contants_1.PaymentStatus.Success,
+                },
+            },
+            {
+                $group: {
+                    _id: null,
+                    totalRevenue: { $sum: '$totalAmount' },
+                    platformRevenue: { $sum: '$revenueSplit.platformFee' },
+                    sellerPayouts: { $sum: '$revenueSplit.sellerPayout' },
+                },
+            },
+        ]);
+        return (result[0] || { totalRevenue: 0, platformRevenue: 0, sellerPayouts: 0 });
+    }
+};
+exports.OrdersService = OrdersService;
+exports.OrdersService = OrdersService = __decorate([
+    (0, common_1.Injectable)(),
+    __param(0, (0, mongoose_1.InjectModel)(order_schema_1.Order.name)),
+    __metadata("design:paramtypes", [mongoose_2.Model,
+        listings_service_1.ListingsService,
+        stores_service_1.StoresService,
+        creators_service_1.CreatorsService,
+        notifications_service_1.NotificationsService])
+], OrdersService);
+//# sourceMappingURL=orders.service.js.map

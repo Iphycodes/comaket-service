@@ -1,0 +1,40 @@
+import { Model } from 'mongoose';
+import { ListingDocument } from './schemas/listing.schema';
+import { StoresService } from '../stores/stores.service';
+import { CreatorsService } from '../creators/creators.service';
+import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
+import { CreateListingDto, UpdateListingDto, AdminReviewListingDto, QueryListingsDto } from './dto/listing.dto';
+import { PaginatedResponse } from '@common/interfaces/paginated-response.interface';
+import { NotificationsService } from '../notifications/notifications.service';
+export declare class ListingsService {
+    private listingModel;
+    private storesService;
+    private creatorsService;
+    private notificationsService;
+    private platformSettingsService;
+    constructor(listingModel: Model<ListingDocument>, storesService: StoresService, creatorsService: CreatorsService, notificationsService: NotificationsService, platformSettingsService: PlatformSettingsService);
+    private isFreeListing;
+    private isNoCommission;
+    private calculateListingFee;
+    private getConsignmentCommissionRate;
+    private verifyOwnership;
+    create(userId: string, createListingDto: CreateListingDto): Promise<ListingDocument>;
+    findById(listingId: string): Promise<ListingDocument>;
+    update(listingId: string, userId: string, updateListingDto: UpdateListingDto): Promise<ListingDocument>;
+    remove(listingId: string, userId: string): Promise<{
+        message: string;
+    }>;
+    adminReview(listingId: string, adminId: string, reviewDto: AdminReviewListingDto): Promise<ListingDocument>;
+    findMyListings(userId: string, queryDto: QueryListingsDto): Promise<PaginatedResponse<ListingDocument>>;
+    findAll(queryDto: QueryListingsDto): Promise<PaginatedResponse<ListingDocument>>;
+    findByStore(storeId: string, queryDto: QueryListingsDto): Promise<PaginatedResponse<ListingDocument>>;
+    findByCreator(creatorId: string, queryDto: QueryListingsDto): Promise<PaginatedResponse<ListingDocument>>;
+    findAllAdmin(queryDto: QueryListingsDto): Promise<PaginatedResponse<ListingDocument>>;
+    findPending(queryDto: QueryListingsDto): Promise<PaginatedResponse<ListingDocument>>;
+    sellerCounterOffer(listingId: string, userId: string, counterOffer: number): Promise<ListingDocument>;
+    sellerAcceptOffer(listingId: string, userId: string): Promise<ListingDocument>;
+    sellerRejectOffer(listingId: string, userId: string): Promise<ListingDocument>;
+    confirmFeePaid(listingId: string, adminId?: string): Promise<ListingDocument>;
+    sellerDelist(listingId: string, userId: string): Promise<ListingDocument>;
+    countListings(filter?: Record<string, any>): Promise<number>;
+}
