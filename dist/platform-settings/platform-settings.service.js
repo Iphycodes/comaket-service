@@ -24,9 +24,15 @@ let PlatformSettingsService = class PlatformSettingsService {
         this.configService = configService;
     }
     async getSettings() {
-        const settings = await this.settingsModel
+        let settings = await this.settingsModel
             .findOneAndUpdate({ key: 'platform' }, { $setOnInsert: { key: 'platform' } }, { upsert: true, new: true })
             .exec();
+        if (!settings) {
+            settings = await this.settingsModel.findOne({ key: 'platform' }).exec();
+            if (!settings) {
+                settings = await this.settingsModel.create({ key: 'platform' });
+            }
+        }
         return settings;
     }
     async updateSettings(updates) {

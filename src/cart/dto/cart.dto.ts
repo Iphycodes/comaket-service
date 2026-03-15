@@ -6,6 +6,7 @@ import {
   ValidateNested,
   IsString,
   IsArray,
+  IsIn,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
@@ -98,4 +99,20 @@ export class CheckoutCartDto {
   @IsOptional()
   @IsString()
   callbackUrl?: string;
+
+  @ApiPropertyOptional({ description: 'Delivery fee in kobo (from delivery zones)' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  deliveryFee?: number;
+
+  @ApiPropertyOptional({
+    description: 'Payment method (defaults to paystack)',
+    enum: ['paystack', 'opay'],
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(['paystack', 'opay'])
+  paymentMethod?: 'paystack' | 'opay';
 }

@@ -72,9 +72,17 @@ __decorate([
     __metadata("design:type", Number)
 ], CheckoutSession.prototype, "grandTotal", void 0);
 __decorate([
+    (0, mongoose_1.Prop)({ type: Number, default: 0 }),
+    __metadata("design:type", Number)
+], CheckoutSession.prototype, "deliveryFee", void 0);
+__decorate([
     (0, mongoose_1.Prop)({ type: String, default: 'NGN' }),
     __metadata("design:type", String)
 ], CheckoutSession.prototype, "currency", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: String, enum: ['paystack', 'opay'], default: 'paystack' }),
+    __metadata("design:type", String)
+], CheckoutSession.prototype, "paymentMethod", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ type: String, required: true }),
     __metadata("design:type", String)

@@ -358,6 +358,8 @@ export class CartService {
     listingIds?: string[],
     buyerNote?: string,
     callbackUrl?: string,
+    deliveryFee: number = 0,
+    paymentMethod: 'paystack' | 'opay' = 'paystack',
   ) {
     // 1. Get and validate cart
     const cart = await this.cartModel
@@ -461,21 +463,33 @@ export class CartService {
       });
     }
 
-    // 2. Calculate grand total
-    const grandTotal = validItems.reduce((sum, i) => sum + i.totalPrice, 0);
+    // 2. Calculate grand total (items + delivery fee)
+    const itemsTotal = validItems.reduce((sum, i) => sum + i.totalPrice, 0);
+    const grandTotal = itemsTotal + deliveryFee;
 
-    // 3. Initialize Paystack payment first (get reference)
-    const payment = await this.paymentsService.initializeCheckoutSessionPayment(
-      grandTotal,
-      email,
-      validItems.map((i) => ({
-        itemName: i.itemName,
-        quantity: i.quantity,
-        unitPrice: i.unitPrice,
-      })),
-      shippingAddress,
-      callbackUrl,
-    );
+    // 3. Initialize payment via chosen provider
+    const itemsSummary = validItems.map((i) => ({
+      itemName: i.itemName,
+      quantity: i.quantity,
+      unitPrice: i.unitPrice,
+    }));
+
+    const payment =
+      paymentMethod === 'opay'
+        ? await this.paymentsService.initializeOPayCheckoutSessionPayment(
+            grandTotal,
+            email,
+            itemsSummary,
+            shippingAddress,
+            callbackUrl,
+          )
+        : await this.paymentsService.initializeCheckoutSessionPayment(
+            grandTotal,
+            email,
+            itemsSummary,
+            shippingAddress,
+            callbackUrl,
+          );
 
     // 4. Create CheckoutSession with validated snapshot
     const session = await this.checkoutSessionModel.create({
@@ -485,7 +499,9 @@ export class CartService {
       shippingAddress,
       buyerNote,
       grandTotal,
+      deliveryFee,
       currency: 'NGN',
+      paymentMethod,
       paymentReference: payment.reference,
       status: 'pending',
       expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes
@@ -500,6 +516,7 @@ export class CartService {
     // 5. Return — cart is untouched, no orders yet
     return {
       sessionId: session._id,
+      paymentMethod,
       payment: {
         authorizationUrl: payment.authorizationUrl,
         accessCode: payment.accessCode,
@@ -550,6 +567,7 @@ export class CartService {
       session.shippingAddress,
       session.buyerNote,
       session.email, // Receipt email (checkout override or user email)
+      (session as any).deliveryFee || 0,
     );
 
     // Mark as paid immediately since payment is already confirmed

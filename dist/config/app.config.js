@@ -10,7 +10,7 @@ exports.default = (0, config_1.registerAs)('app', () => ({
     frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
     jwt: {
         secret: process.env.JWT_SECRET || 'your-super-secret-key-change-me',
-        expiresIn: process.env.JWT_EXPIRES_IN || '30d',
+        expiresIn: process.env.JWT_EXPIRES_IN || '120d',
     },
     google: {
         clientId: process.env.GOOGLE_CLIENT_ID,
@@ -24,6 +24,15 @@ exports.default = (0, config_1.registerAs)('app', () => ({
         callbackUrl: process.env.PAYSTACK_CALLBACK_URL ||
             'http://localhost:3000/payment/callback',
         webhookSecret: process.env.PAYSTACK_WEBHOOK_SECRET,
+    },
+    opay: {
+        secretKey: process.env.OPAY_SECRET_KEY,
+        publicKey: process.env.OPAY_PUBLIC_KEY,
+        merchantId: process.env.OPAY_MERCHANT_ID,
+        baseUrl: process.env.OPAY_BASE_URL ||
+            'https://sandboxapi.opaycheckout.com/api/v1/international/cashier',
+        callbackUrl: process.env.OPAY_CALLBACK_URL ||
+            'http://localhost:3000/payment/callback',
     },
     cloudinary: {
         cloudName: process.env.CLOUDINARY_CLOUD_NAME,

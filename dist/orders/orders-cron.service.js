@@ -30,7 +30,7 @@ let OrdersCronService = OrdersCronService_1 = class OrdersCronService {
     async autoCompleteDeliveredOrders() {
         try {
             const settings = await this.platformSettingsService.getSettings();
-            const maxHours = settings.maxReturnHoursBeforeAutoComplete ?? 72;
+            const maxHours = settings?.maxReturnHoursBeforeAutoComplete ?? 72;
             const cutoffDate = new Date();
             cutoffDate.setHours(cutoffDate.getHours() - maxHours);
             const result = await this.orderModel.updateMany({

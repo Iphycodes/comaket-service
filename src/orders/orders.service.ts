@@ -263,6 +263,7 @@ export class OrdersService {
     shippingAddress: any,
     buyerNote?: string,
     receiptEmail?: string,
+    deliveryFee: number = 0,
   ): Promise<OrderDocument> {
     const subtotal = items.reduce((sum, i) => sum + i.totalPrice, 0);
 
@@ -317,9 +318,9 @@ export class OrdersService {
         commissionRate: i.commissionRate,
       })),
       subtotal,
-      shippingFee: 0,
+      shippingFee: deliveryFee,
       discount: 0,
-      totalAmount: subtotal,
+      totalAmount: subtotal + deliveryFee,
       currency: 'NGN',
       revenueSplit: {
         totalAmount: subtotal,

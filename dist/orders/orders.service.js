@@ -117,7 +117,7 @@ let OrdersService = class OrdersService {
         });
         return order.save();
     }
-    async createCartOrder(buyerId, items, shippingAddress, buyerNote, receiptEmail) {
+    async createCartOrder(buyerId, items, shippingAddress, buyerNote, receiptEmail, deliveryFee = 0) {
         const subtotal = items.reduce((sum, i) => sum + i.totalPrice, 0);
         let totalPlatformFee = 0;
         let totalSellerPayout = 0;
@@ -159,9 +159,9 @@ let OrdersService = class OrdersService {
                 commissionRate: i.commissionRate,
             })),
             subtotal,
-            shippingFee: 0,
+            shippingFee: deliveryFee,
             discount: 0,
-            totalAmount: subtotal,
+            totalAmount: subtotal + deliveryFee,
             currency: 'NGN',
             revenueSplit: {
                 totalAmount: subtotal,

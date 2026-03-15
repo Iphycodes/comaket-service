@@ -62,10 +62,19 @@ import { PlatformSettingsService } from '../platform-settings/platform-settings.
 // Paystack API base URL
 const PAYSTACK_BASE = 'https://api.paystack.co';
 
+// OPay API base URLs
+// Sandbox: https://sandboxapi.opaycheckout.com/api/v1/international/cashier
+// Production: https://api.opaycheckout.com/api/v1/international/cashier
+const OPAY_BASE = 'https://sandboxapi.opaycheckout.com/api/v1/international/cashier';
+
 @Injectable()
 export class PaymentsService {
   private readonly logger = new Logger(PaymentsService.name);
   private readonly secretKey: string;
+  private readonly opaySecretKey: string;
+  private readonly opayPublicKey: string;
+  private readonly opayMerchantId: string;
+  private readonly opayBaseUrl: string;
 
   constructor(
     private configService: ConfigService,
@@ -76,6 +85,11 @@ export class PaymentsService {
     private platformSettingsService: PlatformSettingsService,
   ) {
     this.secretKey = this.configService.get<string>('app.paystack.secretKey');
+    this.opaySecretKey = this.configService.get<string>('app.opay.secretKey');
+    this.opayPublicKey = this.configService.get<string>('app.opay.publicKey');
+    this.opayMerchantId = this.configService.get<string>('app.opay.merchantId');
+    this.opayBaseUrl =
+      this.configService.get<string>('app.opay.baseUrl') || OPAY_BASE;
   }
 
   // ─── Paystack HTTP Helper ────────────────────────────────
@@ -108,6 +122,78 @@ export class PaymentsService {
         'Payment service error. Please try again.',
       );
     }
+  }
+
+  // ─── OPay HTTP Helper ─────────────────────────────────────
+
+  /**
+   * Make an authenticated request to the OPay Cashier API.
+   * Auth: Bearer {PUBLIC_KEY} + MerchantId header.
+   */
+  private async opayRequest(endpoint: string, data?: any) {
+    try {
+      const response = await axios({
+        method: 'post',
+        url: `${this.opayBaseUrl}${endpoint}`,
+        headers: {
+          Authorization: `Bearer ${this.opayPublicKey}`,
+          MerchantId: this.opayMerchantId,
+          'Content-Type': 'application/json',
+        },
+        data,
+      });
+      return response.data;
+    } catch (error) {
+      this.logger.error(
+        `OPay API error [${endpoint}]: ${JSON.stringify(error.response?.data) || error.message}`,
+      );
+      throw new InternalServerErrorException(
+        error.response?.data?.message || 'Payment service error. Please try again.',
+      );
+    }
+  }
+
+  /**
+   * Make a signed request to OPay status API.
+   * Uses HMAC-SHA512 of the JSON body signed with secret key.
+   */
+  private async opaySignedRequest(endpoint: string, data?: any) {
+    const jsonBody = JSON.stringify(data || {});
+    const signature = crypto
+      .createHmac('sha512', this.opaySecretKey)
+      .update(jsonBody)
+      .digest('hex');
+
+    try {
+      const response = await axios({
+        method: 'post',
+        url: `${this.opayBaseUrl}${endpoint}`,
+        headers: {
+          Authorization: `Bearer ${signature}`,
+          MerchantId: this.opayMerchantId,
+          'Content-Type': 'application/json',
+        },
+        data,
+      });
+      return response.data;
+    } catch (error) {
+      this.logger.error(
+        `OPay status API error [${endpoint}]: ${JSON.stringify(error.response?.data) || error.message}`,
+      );
+      throw new InternalServerErrorException(
+        error.response?.data?.message || 'Payment service error. Please try again.',
+      );
+    }
+  }
+
+  /**
+   * Generate HMAC-SHA512 signature for OPay webhook verification.
+   */
+  private opaySignature(payload: string): string {
+    return crypto
+      .createHmac('sha512', this.opaySecretKey)
+      .update(payload)
+      .digest('hex');
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -261,6 +347,139 @@ export class PaymentsService {
     return {
       authorizationUrl: result.data.authorization_url,
       accessCode: result.data.access_code,
+      reference: result.data.reference,
+    };
+  }
+
+  // ─── OPay Checkout Session Payment ──────────────────────────
+
+  /**
+   * Initialize ONE OPay payment for a cart checkout session.
+   * Same concept as initializeCheckoutSessionPayment but via OPay.
+   */
+  async initializeOPayCheckoutSessionPayment(
+    grandTotal: number,
+    email: string,
+    items: Array<{ itemName: string; quantity: number; unitPrice: number }>,
+    shippingAddress: {
+      fullName: string;
+      address: string;
+      city: string;
+      state: string;
+      country: string;
+    },
+    callbackUrl?: string,
+  ) {
+    const reference = `CMK-CHK-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+
+    const itemsSummary = items
+      .map(
+        (i) =>
+          `${i.itemName} (x${i.quantity}) — ₦${(i.unitPrice / 100).toLocaleString()}`,
+      )
+      .join(', ');
+
+    const payload = {
+      country: 'NG',
+      reference,
+      amount: {
+        total: grandTotal,
+        currency: 'NGN',
+      },
+      returnUrl:
+        callbackUrl ||
+        this.configService.get<string>('app.opay.callbackUrl'),
+      callbackUrl:
+        this.configService.get<string>('app.opay.callbackUrl'),
+      expireAt: 30,
+      userInfo: {
+        userEmail: email,
+        userName: shippingAddress.fullName,
+      },
+      productList: items.map((item, idx) => ({
+        productId: `item-${idx}`,
+        name: item.itemName,
+        description: item.itemName,
+        price: item.unitPrice,
+        quantity: item.quantity,
+      })),
+    };
+
+    this.logger.log(`OPay init payload: ${JSON.stringify(payload)}`);
+    const result = await this.opayRequest('/create', payload);
+
+    if (result.code !== '00000') {
+      this.logger.error(`OPay init failed: ${result.message}`);
+      throw new InternalServerErrorException(
+        'Failed to initialize OPay payment. Please try again.',
+      );
+    }
+
+    return {
+      authorizationUrl: result.data.cashierUrl,
+      accessCode: result.data.orderNo,
+      reference: result.data.reference,
+    };
+  }
+
+  // ─── OPay Order Payment ──────────────────────────────────────
+
+  /**
+   * Initialize an OPay payment for a single order.
+   */
+  async initializeOPayOrderPayment(
+    orderId: string,
+    email: string,
+    callbackUrl?: string,
+  ) {
+    const order = await this.ordersService.findByIdInternal(orderId);
+    if (!order) throw new NotFoundException('Order not found');
+
+    if (order.paymentStatus === PaymentStatus.Success) {
+      throw new BadRequestException('This order has already been paid');
+    }
+
+    const reference = `CMK-ORD-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+
+    order.paymentInfo = {
+      ...order.paymentInfo,
+      method: 'opay',
+      reference,
+      status: 'initialized',
+    };
+    await order.save();
+
+    const result = await this.opayRequest('/create', {
+      country: 'NG',
+      reference,
+      amount: {
+        total: order.totalAmount,
+        currency: 'NGN',
+      },
+      returnUrl:
+        callbackUrl ||
+        this.configService.get<string>('app.opay.callbackUrl'),
+      callbackUrl: this.configService.get<string>('app.opay.callbackUrl'),
+      expireAt: 30,
+      userInfo: {
+        userEmail: email,
+      },
+      productList: [{
+        productId: orderId,
+        name: `Order ${order.orderNumber}`,
+        description: `Payment for order ${order.orderNumber}`,
+        price: order.totalAmount,
+        quantity: 1,
+      }],
+    });
+
+    if (result.code !== '00000') {
+      throw new InternalServerErrorException('Failed to initialize OPay payment.');
+    }
+
+    return {
+      authorizationUrl: result.data.cashierUrl,
+      accessCode: result.data.orderNo,
       reference: result.data.reference,
     };
   }
@@ -583,6 +802,142 @@ export class PaymentsService {
 
       default:
         this.logger.log(`Unhandled webhook event: ${event}`);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // OPAY PAYMENT VERIFICATION
+  // ═══════════════════════════════════════════════════════════
+
+  /**
+   * Verify an OPay payment by querying the transaction status.
+   * Uses HMAC-signed request to POST /status endpoint.
+   */
+  async verifyOPayPayment(reference: string) {
+    const result = await this.opaySignedRequest('/status', {
+      reference,
+      country: 'NG',
+    });
+
+    if (result.code !== '00000') {
+      this.logger.error(`OPay verify failed: ${result.message}`);
+      return {
+        verified: false,
+        status: 'error',
+        message: 'Failed to verify OPay payment',
+      };
+    }
+
+    const { status: txStatus, reference: txRef } = result.data;
+
+    this.logger.log(
+      `OPay verify: ref=${reference}, txRef=${txRef}, status=${txStatus}`,
+    );
+
+    if (txStatus === 'SUCCESS') {
+      // Look up checkout session by reference
+      const session = await this.cartService.findSessionByReference(txRef || reference);
+      if (session) {
+        await this.processCheckoutSession(
+          session.paymentReference,
+          txRef || reference,
+        );
+      } else {
+        // Try as a single order payment
+        await this.processOPayOrderPayment(txRef || reference);
+      }
+
+      return {
+        verified: true,
+        status: 'success',
+        message: 'Payment verified successfully',
+        reference: txRef || reference,
+      };
+    }
+
+    if (txStatus === 'FAIL' || txStatus === 'CLOSE') {
+      // Mark session as failed
+      const session = await this.cartService.findSessionByReference(
+        txRef || reference,
+      );
+      if (session) {
+        await this.cartService.failCheckoutSession(session.paymentReference);
+      }
+
+      return {
+        verified: false,
+        status: txStatus.toLowerCase(),
+        message: `Payment ${txStatus.toLowerCase()}`,
+      };
+    }
+
+    // PENDING or INITIAL
+    return {
+      verified: false,
+      status: 'pending',
+      message: 'Payment is still being processed',
+    };
+  }
+
+  /**
+   * Process a successful OPay single-order payment.
+   * Looks up order by payment reference and confirms it.
+   */
+  private async processOPayOrderPayment(reference: string) {
+    try {
+      const order = await this.ordersService.findByPaymentReference(reference);
+      if (order) {
+        await this.ordersService.confirmPayment(
+          order._id.toString(),
+          reference,
+          reference,
+        );
+      }
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        this.logger.warn(`OPay order already confirmed: ${reference}`);
+        return;
+      }
+      throw error;
+    }
+  }
+
+  // ─── OPay Webhook Handler ─────────────────────────────────
+
+  /**
+   * POST /payments/opay-webhook
+   *
+   * OPay sends webhook notifications to the callbackUrl.
+   * Verify the HMAC-SHA512 signature and process the event.
+   */
+  async handleOPayWebhook(signature: string, payload: any): Promise<void> {
+    // Verify signature
+    const expectedSig = this.opaySignature(JSON.stringify(payload));
+
+    if (expectedSig !== signature) {
+      this.logger.warn('Invalid OPay webhook signature');
+      throw new BadRequestException('Invalid signature');
+    }
+
+    const { reference, status, orderNo } = payload?.payload || payload;
+
+    this.logger.log(
+      `OPay webhook: ref=${reference}, orderNo=${orderNo}, status=${status}`,
+    );
+
+    if (status === 'SUCCESS') {
+      // Try checkout session first
+      const session = await this.cartService.findSessionByReference(
+        reference,
+      );
+      if (session) {
+        await this.processCheckoutSession(reference, orderNo || reference);
+      } else {
+        // Try single order
+        await this.processOPayOrderPayment(reference);
+      }
+    } else if (status === 'FAIL' || status === 'CLOSE') {
+      await this.cartService.failCheckoutSession(reference);
     }
   }
 

@@ -32,13 +32,22 @@ export class PlatformSettingsService {
    * Get the platform settings (creates with defaults if doesn't exist).
    */
   async getSettings(): Promise<PlatformSettingsDocument> {
-    const settings = await this.settingsModel
+    let settings = await this.settingsModel
       .findOneAndUpdate(
         { key: 'platform' },
         { $setOnInsert: { key: 'platform' } },
         { upsert: true, new: true },
       )
       .exec();
+
+    // Fallback: if upsert somehow returned null, try a plain find or create
+    if (!settings) {
+      settings = await this.settingsModel.findOne({ key: 'platform' }).exec();
+      if (!settings) {
+        settings = await this.settingsModel.create({ key: 'platform' });
+      }
+    }
+
     return settings;
   }
 

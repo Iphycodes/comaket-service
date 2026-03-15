@@ -40,6 +40,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt.auth.guard';
 import { GetUser, JwtPayload, ResponseMessage } from '@common/decorators';
 import { PaymentsService } from './payments.service';
 import {
@@ -81,6 +82,29 @@ export class PaymentsController {
     @Body() dto: InitializePaymentDto,
   ) {
     return this.paymentsService.initializeOrderPayment(
+      dto.orderId,
+      user.email,
+      dto.callbackUrl,
+    );
+  }
+
+  // ─── POST /api/v1/payments/initialize-opay ─────────────────
+
+  @Post('initialize-opay')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ResponseMessage('OPay payment initialized')
+  @ApiOperation({
+    summary: 'Initialize order payment via OPay',
+    description:
+      'Creates an OPay transaction for an order. Returns the ' +
+      'cashier URL where the user should be redirected to pay.',
+  })
+  async initializeOPayPayment(
+    @GetUser() user: JwtPayload,
+    @Body() dto: InitializePaymentDto,
+  ) {
+    return this.paymentsService.initializeOPayOrderPayment(
       dto.orderId,
       user.email,
       dto.callbackUrl,
@@ -149,13 +173,14 @@ export class PaymentsController {
   // ─── GET /api/v1/payments/verify/:reference ─────────────
 
   @Get('verify/:reference')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({
     summary: 'Verify a payment',
     description:
       'Verifies a Paystack transaction by reference. Call this after ' +
-      'the user is redirected back from Paystack to confirm the payment.',
+      'the user is redirected back from Paystack to confirm the payment. ' +
+      'Auth is optional — the payment reference itself acts as authorization.',
   })
   @ApiParam({ name: 'reference', description: 'Paystack payment reference' })
   @ApiResponse({ status: 200, description: 'Payment verification result' })
@@ -179,6 +204,35 @@ export class PaymentsController {
     await this.paymentsService.handleWebhook(signature, payload);
     // Return 200 quickly — Paystack retries if we're slow
     return { received: true };
+  }
+
+  // ─── POST /api/v1/payments/opay-webhook ────────────────────
+
+  @Post('opay-webhook')
+  @HttpCode(200)
+  @ApiExcludeEndpoint()
+  async handleOPayWebhook(
+    @Headers('authorization') signature: string,
+    @Body() payload: any,
+  ) {
+    await this.paymentsService.handleOPayWebhook(signature || '', payload);
+    return { received: true };
+  }
+
+  // ─── GET /api/v1/payments/verify-opay/:reference ──────────
+
+  @Get('verify-opay/:reference')
+  @UseGuards(OptionalJwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Verify an OPay payment',
+    description:
+      'Verifies an OPay transaction by reference/orderNo. Call this after ' +
+      'the user is redirected back from OPay.',
+  })
+  @ApiParam({ name: 'reference', description: 'OPay payment reference or orderNo' })
+  async verifyOPayPayment(@Param('reference') reference: string) {
+    return this.paymentsService.verifyOPayPayment(reference);
   }
 
   // ═══════════════════════════════════════════════════════════
