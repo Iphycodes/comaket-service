@@ -45,6 +45,7 @@ import { FollowsModule } from './follows/follows.module';
 import { FeaturedWorksModule } from './featured-works/featured-works.module';
 import { ShippingAddressesModule } from './shipping-addresses/shipping-addresses.module';
 import { PlatformSettingsModule } from './platform-settings/platform-settings.module';
+import { DeliveryZonesModule } from './delivery-zones/delivery-zones.module';
 
 @Module({
   imports: [
@@ -109,6 +110,7 @@ import { PlatformSettingsModule } from './platform-settings/platform-settings.mo
     FeaturedWorksModule,
     ShippingAddressesModule,
     PlatformSettingsModule,
+    DeliveryZonesModule,
   ],
   controllers: [AppController],
 })

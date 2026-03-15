@@ -57,8 +57,9 @@ export declare class CartService {
         totalItems: number;
         issues: any[];
     }>;
-    checkout(userId: string, email: string, shippingAddress: any, listingIds?: string[], buyerNote?: string, callbackUrl?: string): Promise<{
+    checkout(userId: string, email: string, shippingAddress: any, listingIds?: string[], buyerNote?: string, callbackUrl?: string, deliveryFee?: number, paymentMethod?: 'paystack' | 'opay'): Promise<{
         sessionId: any;
+        paymentMethod: "paystack" | "opay";
         payment: {
             authorizationUrl: any;
             accessCode: any;

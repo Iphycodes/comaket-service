@@ -9,6 +9,11 @@ export declare class PaymentsController {
         accessCode: any;
         reference: any;
     }>;
+    initializeOPayPayment(user: JwtPayload, dto: InitializePaymentDto): Promise<{
+        authorizationUrl: any;
+        accessCode: any;
+        reference: any;
+    }>;
     initializeListingFee(user: JwtPayload, dto: InitializeListingFeeDto): Promise<{
         authorizationUrl: any;
         accessCode: any;
@@ -38,6 +43,20 @@ export declare class PaymentsController {
     }>;
     handleWebhook(signature: string, payload: any): Promise<{
         received: boolean;
+    }>;
+    handleOPayWebhook(signature: string, payload: any): Promise<{
+        received: boolean;
+    }>;
+    verifyOPayPayment(reference: string): Promise<{
+        verified: boolean;
+        status: string;
+        message: string;
+        reference: any;
+    } | {
+        verified: boolean;
+        status: any;
+        message: string;
+        reference?: undefined;
     }>;
     getMySubscription(user: JwtPayload): Promise<{
         plan: import("../config/contants").CreatorPlan;

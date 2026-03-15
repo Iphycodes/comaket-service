@@ -200,7 +200,7 @@ let CartService = CartService_1 = class CartService {
             issues,
         };
     }
-    async checkout(userId, email, shippingAddress, listingIds, buyerNote, callbackUrl) {
+    async checkout(userId, email, shippingAddress, listingIds, buyerNote, callbackUrl, deliveryFee = 0, paymentMethod = 'paystack') {
         const cart = await this.cartModel
             .findOne({ userId: new mongoose_2.Types.ObjectId(userId) })
             .exec();
@@ -277,12 +277,16 @@ let CartService = CartService_1 = class CartService {
                 skippedItems,
             });
         }
-        const grandTotal = validItems.reduce((sum, i) => sum + i.totalPrice, 0);
-        const payment = await this.paymentsService.initializeCheckoutSessionPayment(grandTotal, email, validItems.map((i) => ({
+        const itemsTotal = validItems.reduce((sum, i) => sum + i.totalPrice, 0);
+        const grandTotal = itemsTotal + deliveryFee;
+        const itemsSummary = validItems.map((i) => ({
             itemName: i.itemName,
             quantity: i.quantity,
             unitPrice: i.unitPrice,
-        })), shippingAddress, callbackUrl);
+        }));
+        const payment = paymentMethod === 'opay'
+            ? await this.paymentsService.initializeOPayCheckoutSessionPayment(grandTotal, email, itemsSummary, shippingAddress, callbackUrl)
+            : await this.paymentsService.initializeCheckoutSessionPayment(grandTotal, email, itemsSummary, shippingAddress, callbackUrl);
         const session = await this.checkoutSessionModel.create({
             buyerId: new mongoose_2.Types.ObjectId(userId),
             email,
@@ -290,7 +294,9 @@ let CartService = CartService_1 = class CartService {
             shippingAddress,
             buyerNote,
             grandTotal,
+            deliveryFee,
             currency: 'NGN',
+            paymentMethod,
             paymentReference: payment.reference,
             status: 'pending',
             expiresAt: new Date(Date.now() + 30 * 60 * 1000),
@@ -300,6 +306,7 @@ let CartService = CartService_1 = class CartService {
             `total ${grandTotal}, ref ${payment.reference}`);
         return {
             sessionId: session._id,
+            paymentMethod,
             payment: {
                 authorizationUrl: payment.authorizationUrl,
                 accessCode: payment.accessCode,
@@ -324,7 +331,7 @@ let CartService = CartService_1 = class CartService {
             this.logger.warn(`Checkout session in unexpected state: ${session.status}`);
             throw new common_1.BadRequestException(`Checkout session is ${session.status}`);
         }
-        const order = await this.ordersService.createCartOrder(session.buyerId.toString(), session.items, session.shippingAddress, session.buyerNote, session.email);
+        const order = await this.ordersService.createCartOrder(session.buyerId.toString(), session.items, session.shippingAddress, session.buyerNote, session.email, session.deliveryFee || 0);
         await this.ordersService.confirmPayment(order._id.toString(), paymentReference, paystackReference);
         const paidListingIds = session.items.map((i) => i.listingId);
         await this.removeCheckedOutItems(session.buyerId.toString(), paidListingIds);

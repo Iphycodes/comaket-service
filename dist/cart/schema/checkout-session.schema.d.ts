@@ -29,7 +29,9 @@ export declare class CheckoutSession {
     shippingAddress: SessionShippingAddress;
     buyerNote?: string;
     grandTotal: number;
+    deliveryFee: number;
     currency: string;
+    paymentMethod: string;
     paymentReference: string;
     status: string;
     orderIds: string[];

@@ -21,6 +21,13 @@ declare const _default: (() => {
         callbackUrl: string;
         webhookSecret: string;
     };
+    opay: {
+        secretKey: string;
+        publicKey: string;
+        merchantId: string;
+        baseUrl: string;
+        callbackUrl: string;
+    };
     cloudinary: {
         cloudName: string;
         apiKey: string;
@@ -69,6 +76,13 @@ declare const _default: (() => {
         baseUrl: string;
         callbackUrl: string;
         webhookSecret: string;
+    };
+    opay: {
+        secretKey: string;
+        publicKey: string;
+        merchantId: string;
+        baseUrl: string;
+        callbackUrl: string;
     };
     cloudinary: {
         cloudName: string;

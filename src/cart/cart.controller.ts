@@ -139,6 +139,8 @@ export class CartController {
       dto.listingIds,
       dto.buyerNote,
       dto.callbackUrl,
+      dto.deliveryFee,
+      dto.paymentMethod,
     );
   }
 }

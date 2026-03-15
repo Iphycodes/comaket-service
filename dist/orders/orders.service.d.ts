@@ -28,7 +28,7 @@ export declare class OrdersService {
         type: string;
         image: string | null;
         commissionRate: number;
-    }>, shippingAddress: any, buyerNote?: string, receiptEmail?: string): Promise<OrderDocument>;
+    }>, shippingAddress: any, buyerNote?: string, receiptEmail?: string, deliveryFee?: number): Promise<OrderDocument>;
     confirmPayment(orderId: string, paymentReference: string, paystackReference: string): Promise<OrderDocument>;
     findByPaymentReference(reference: string): Promise<OrderDocument>;
     findByIdInternal(orderId: string): Promise<OrderDocument>;

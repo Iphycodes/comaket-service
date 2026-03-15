@@ -29,7 +29,7 @@ export default registerAs('app', () => ({
   // JWT (JSON Web Tokens) — for authentication
   jwt: {
     secret: process.env.JWT_SECRET || 'your-super-secret-key-change-me',
-    expiresIn: process.env.JWT_EXPIRES_IN || '30d',
+    expiresIn: process.env.JWT_EXPIRES_IN || '120d',
   },
 
   // Google OAuth
@@ -48,6 +48,19 @@ export default registerAs('app', () => ({
       process.env.PAYSTACK_CALLBACK_URL ||
       'http://localhost:3000/payment/callback',
     webhookSecret: process.env.PAYSTACK_WEBHOOK_SECRET,
+  },
+
+  // OPay — Payment gateway (alternative to Paystack)
+  opay: {
+    secretKey: process.env.OPAY_SECRET_KEY,
+    publicKey: process.env.OPAY_PUBLIC_KEY,
+    merchantId: process.env.OPAY_MERCHANT_ID,
+    baseUrl:
+      process.env.OPAY_BASE_URL ||
+      'https://sandboxapi.opaycheckout.com/api/v1/international/cashier',
+    callbackUrl:
+      process.env.OPAY_CALLBACK_URL ||
+      'http://localhost:3000/payment/callback',
   },
 
   // Cloudinary — Image/video hosting

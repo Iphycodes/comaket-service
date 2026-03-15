@@ -43,7 +43,7 @@ export class OrdersCronService {
     try {
       // Get the configurable threshold from platform settings
       const settings = await this.platformSettingsService.getSettings();
-      const maxHours = settings.maxReturnHoursBeforeAutoComplete ?? 72;
+      const maxHours = settings?.maxReturnHoursBeforeAutoComplete ?? 72;
 
       // Calculate the cutoff date: orders delivered before this time should auto-complete
       const cutoffDate = new Date();

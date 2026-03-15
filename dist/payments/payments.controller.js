@@ -16,6 +16,7 @@ exports.PaymentsController = void 0;
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
+const optional_jwt_auth_guard_1 = require("../auth/guards/optional-jwt.auth.guard");
 const decorators_1 = require("../common/decorators");
 const payments_service_1 = require("./payments.service");
 const payment_dto_1 = require("./dto/payment.dto");
@@ -25,6 +26,9 @@ let PaymentsController = class PaymentsController {
     }
     async initializePayment(user, dto) {
         return this.paymentsService.initializeOrderPayment(dto.orderId, user.email, dto.callbackUrl);
+    }
+    async initializeOPayPayment(user, dto) {
+        return this.paymentsService.initializeOPayOrderPayment(dto.orderId, user.email, dto.callbackUrl);
     }
     async initializeListingFee(user, dto) {
         return this.paymentsService.initializeListingFeePayment(dto.listingId, user.email, dto.callbackUrl);
@@ -38,6 +42,13 @@ let PaymentsController = class PaymentsController {
     async handleWebhook(signature, payload) {
         await this.paymentsService.handleWebhook(signature, payload);
         return { received: true };
+    }
+    async handleOPayWebhook(signature, payload) {
+        await this.paymentsService.handleOPayWebhook(signature || '', payload);
+        return { received: true };
+    }
+    async verifyOPayPayment(reference) {
+        return this.paymentsService.verifyOPayPayment(reference);
     }
     async getMySubscription(user) {
         return this.paymentsService.getSubscriptionDetails(user.email);
@@ -79,6 +90,22 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], PaymentsController.prototype, "initializePayment", null);
 __decorate([
+    (0, common_1.Post)('initialize-opay'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiBearerAuth)('JWT-auth'),
+    (0, decorators_1.ResponseMessage)('OPay payment initialized'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Initialize order payment via OPay',
+        description: 'Creates an OPay transaction for an order. Returns the ' +
+            'cashier URL where the user should be redirected to pay.',
+    }),
+    __param(0, (0, decorators_1.GetUser)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, payment_dto_1.InitializePaymentDto]),
+    __metadata("design:returntype", Promise)
+], PaymentsController.prototype, "initializeOPayPayment", null);
+__decorate([
     (0, common_1.Post)('listing-fee'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, swagger_1.ApiBearerAuth)('JWT-auth'),
@@ -113,12 +140,13 @@ __decorate([
 ], PaymentsController.prototype, "initializeSubscription", null);
 __decorate([
     (0, common_1.Get)('verify/:reference'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.UseGuards)(optional_jwt_auth_guard_1.OptionalJwtAuthGuard),
     (0, swagger_1.ApiBearerAuth)('JWT-auth'),
     (0, swagger_1.ApiOperation)({
         summary: 'Verify a payment',
         description: 'Verifies a Paystack transaction by reference. Call this after ' +
-            'the user is redirected back from Paystack to confirm the payment.',
+            'the user is redirected back from Paystack to confirm the payment. ' +
+            'Auth is optional — the payment reference itself acts as authorization.',
     }),
     (0, swagger_1.ApiParam)({ name: 'reference', description: 'Paystack payment reference' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Payment verification result' }),
@@ -137,6 +165,31 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], PaymentsController.prototype, "handleWebhook", null);
+__decorate([
+    (0, common_1.Post)('opay-webhook'),
+    (0, common_1.HttpCode)(200),
+    (0, swagger_1.ApiExcludeEndpoint)(),
+    __param(0, (0, common_1.Headers)('authorization')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], PaymentsController.prototype, "handleOPayWebhook", null);
+__decorate([
+    (0, common_1.Get)('verify-opay/:reference'),
+    (0, common_1.UseGuards)(optional_jwt_auth_guard_1.OptionalJwtAuthGuard),
+    (0, swagger_1.ApiBearerAuth)('JWT-auth'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Verify an OPay payment',
+        description: 'Verifies an OPay transaction by reference/orderNo. Call this after ' +
+            'the user is redirected back from OPay.',
+    }),
+    (0, swagger_1.ApiParam)({ name: 'reference', description: 'OPay payment reference or orderNo' }),
+    __param(0, (0, common_1.Param)('reference')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], PaymentsController.prototype, "verifyOPayPayment", null);
 __decorate([
     (0, common_1.Get)('my-subscription'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),

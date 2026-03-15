@@ -53,6 +53,7 @@ export declare class CartController {
     }>;
     checkout(req: any, dto: CheckoutCartDto): Promise<{
         sessionId: any;
+        paymentMethod: "paystack" | "opay";
         payment: {
             authorizationUrl: any;
             accessCode: any;

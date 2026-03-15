@@ -15,8 +15,15 @@ export declare class PaymentsService {
     private platformSettingsService;
     private readonly logger;
     private readonly secretKey;
+    private readonly opaySecretKey;
+    private readonly opayPublicKey;
+    private readonly opayMerchantId;
+    private readonly opayBaseUrl;
     constructor(configService: ConfigService, ordersService: OrdersService, cartService: CartService, listingModel: Model<ListingDocument>, creatorModel: Model<CreatorDocument>, platformSettingsService: PlatformSettingsService);
     private paystackRequest;
+    private opayRequest;
+    private opaySignedRequest;
+    private opaySignature;
     initializeOrderPayment(orderId: string, email: string, callbackUrl?: string): Promise<{
         authorizationUrl: any;
         accessCode: any;
@@ -33,6 +40,26 @@ export declare class PaymentsService {
         state: string;
         country: string;
     }, callbackUrl?: string): Promise<{
+        authorizationUrl: any;
+        accessCode: any;
+        reference: any;
+    }>;
+    initializeOPayCheckoutSessionPayment(grandTotal: number, email: string, items: Array<{
+        itemName: string;
+        quantity: number;
+        unitPrice: number;
+    }>, shippingAddress: {
+        fullName: string;
+        address: string;
+        city: string;
+        state: string;
+        country: string;
+    }, callbackUrl?: string): Promise<{
+        authorizationUrl: any;
+        accessCode: any;
+        reference: any;
+    }>;
+    initializeOPayOrderPayment(orderId: string, email: string, callbackUrl?: string): Promise<{
         authorizationUrl: any;
         accessCode: any;
         reference: any;
@@ -54,6 +81,19 @@ export declare class PaymentsService {
     private processOrderPayment;
     private processCheckoutSession;
     handleWebhook(signature: string, payload: any): Promise<void>;
+    verifyOPayPayment(reference: string): Promise<{
+        verified: boolean;
+        status: string;
+        message: string;
+        reference: any;
+    } | {
+        verified: boolean;
+        status: any;
+        message: string;
+        reference?: undefined;
+    }>;
+    private processOPayOrderPayment;
+    handleOPayWebhook(signature: string, payload: any): Promise<void>;
     private processListingFeePayment;
     initializeListingFeePayment(listingId: string, email: string, callbackUrl?: string): Promise<{
         authorizationUrl: any;

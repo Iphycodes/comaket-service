@@ -112,10 +112,16 @@ export class CheckoutSession {
   @Prop({ type: Number, required: true })
   grandTotal: number;
 
+  @Prop({ type: Number, default: 0 })
+  deliveryFee: number;
+
   @Prop({ type: String, default: 'NGN' })
   currency: string;
 
   // ─── Payment ──────────────────────────────────────────────
+
+  @Prop({ type: String, enum: ['paystack', 'opay'], default: 'paystack' })
+  paymentMethod: string;
 
   @Prop({ type: String, required: true })
   paymentReference: string;

@@ -20,4 +20,6 @@ export declare class CheckoutCartDto {
     email?: string;
     buyerNote?: string;
     callbackUrl?: string;
+    deliveryFee?: number;
+    paymentMethod?: 'paystack' | 'opay';
 }
