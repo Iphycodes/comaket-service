@@ -29,6 +29,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
+import * as dns from 'dns';
 import {
   EmailBrand,
   verificationOtpTemplate,
@@ -77,8 +78,10 @@ export class NotificationsService {
         port: port || 587,
         secure: port === 465, // true for 465, false for other ports
         auth: { user, pass: password },
-        family: 4, // Force IPv4 — cloud providers like Render often don't support IPv6
-      });
+        // Force IPv4 — cloud providers like Render often don't support IPv6
+        dnsLookup: (hostname, opts, cb) =>
+          dns.lookup(hostname, { ...opts, family: 4 }, cb),
+      } as Record<string, any>);
 
       // Verify connection on startup
       this.transporter
