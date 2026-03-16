@@ -9,7 +9,7 @@
  *    - Seller lists item, handles the sale themselves via WhatsApp
  *    - Pays a listing fee to Comaket
  *    - isBuyable = FALSE (can't buy on platform, only contact seller)
- *    - Frontend shows: "Message on WhatsApp" button
+ *    - Frontend shows: "WhatsApp" button
  *
  * 2. CONSIGNMENT
  *    - Seller hands item to Comaket to sell on their behalf
