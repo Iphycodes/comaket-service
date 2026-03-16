@@ -154,6 +154,29 @@ export class User extends BaseSchema {
   @Prop({ type: Date, select: false })
   verificationExpires?: Date;
 
+  // ─── Notification Preferences ───────────────────────
+
+  @Prop({
+    type: {
+      emailNotifications: { type: Boolean, default: true },
+      pushNotifications: { type: Boolean, default: true },
+      orderUpdates: { type: Boolean, default: true },
+      promotions: { type: Boolean, default: false },
+    },
+    default: {
+      emailNotifications: true,
+      pushNotifications: true,
+      orderUpdates: true,
+      promotions: false,
+    },
+  })
+  notificationPreferences?: {
+    emailNotifications: boolean;
+    pushNotifications: boolean;
+    orderUpdates: boolean;
+    promotions: boolean;
+  };
+
   // ─── Password Reset ──────────────────────────────────────
 
   @Prop({ select: false })

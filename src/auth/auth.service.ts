@@ -100,11 +100,8 @@ export class AuthService {
    * Flow:
    * 1. Generate OTP for email verification
    * 2. Create user via UsersService (which hashes the password)
-   * 3. TODO: Send verification email with OTP
-   * 4. Return user data + JWT token
-   *
-   * The user can start using the app immediately but some features
-   * may require email verification (like becoming a creator).
+   * 3. Send verification email with OTP
+   * 4. Return user data WITHOUT token (user must verify email first)
    */
   async register(registerDto: RegisterDto) {
     const otp = this.generateOTP();
@@ -129,7 +126,10 @@ export class AuthService {
       otp,
     );
 
-    return this.buildAuthResponse(user);
+    const { password, verificationCode, verificationExpires: vExp, ...userData } =
+      user.toObject();
+
+    return userData;
   }
 
   // ─── Login ───────────────────────────────────────────────
@@ -141,7 +141,8 @@ export class AuthService {
    * 1. Find user by email (includes password field)
    * 2. Check if it's a Google user (they can't login with password)
    * 3. Compare provided password with stored hash
-   * 4. Return user data + JWT token
+   * 4. If email not verified, resend OTP and return unverified response (no token)
+   * 5. Return user data + JWT token
    */
   async login(loginDto: LoginDto) {
     const { email, password } = loginDto;
@@ -163,6 +164,33 @@ export class AuthService {
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // If email not verified, resend OTP and return without token
+    if (!user.isEmailVerified) {
+      const otp = this.generateOTP();
+      const verificationExpires = new Date();
+      verificationExpires.setMinutes(verificationExpires.getMinutes() + 10);
+
+      await this.usersService.updateInternal(user._id.toString(), {
+        verificationCode: otp,
+        verificationExpires,
+      });
+
+      this.notificationsService.sendVerificationOtp(
+        user.email,
+        user.firstName,
+        otp,
+      );
+
+      const { password: pw, verificationCode, verificationExpires: vExp, ...userData } =
+        user.toObject();
+
+      return {
+        ...userData,
+        isEmailVerified: false,
+        requiresVerification: true,
+      };
     }
 
     return this.buildAuthResponse(user);

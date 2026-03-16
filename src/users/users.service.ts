@@ -22,9 +22,11 @@
  */
 
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -34,6 +36,8 @@ import { AuthProvider } from '@config/contants';
 import { User, UserDocument } from './schemas/user.schema';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { UpdateNotificationPreferencesDto } from './dto/update-notification-preferences.dto';
 
 @Injectable()
 export class UsersService {
@@ -175,5 +179,109 @@ export class UsersService {
    */
   async countUsers(filter: Record<string, any> = {}): Promise<number> {
     return this.userModel.countDocuments(filter).exec();
+  }
+
+  // ─── Account Settings ───────────────────────────────────
+
+  /**
+   * Soft-delete user account.
+   * Requires password confirmation for security.
+   * Sets isDeleted=true and deletedAt=now instead of removing the document.
+   */
+  async deleteAccount(userId: string, password: string): Promise<void> {
+    const user = await this.userModel
+      .findById(userId)
+      .select('+password')
+      .exec();
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Google OAuth users don't have a password
+    if (user.authProvider === AuthProvider.Google) {
+      throw new BadRequestException(
+        'Google accounts cannot be deleted with a password. Please contact support.',
+      );
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid password');
+    }
+
+    await this.userModel
+      .findByIdAndUpdate(userId, {
+        $set: { isDeleted: true, deletedAt: new Date() },
+      })
+      .exec();
+  }
+
+  /**
+   * Change user password.
+   * Validates current password before updating to the new one.
+   */
+  async changePassword(
+    userId: string,
+    changePasswordDto: ChangePasswordDto,
+  ): Promise<void> {
+    const { currentPassword, newPassword } = changePasswordDto;
+
+    const user = await this.userModel
+      .findById(userId)
+      .select('+password')
+      .exec();
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.authProvider === AuthProvider.Google) {
+      throw new BadRequestException(
+        'Google accounts do not have a password to change. Please use Google sign-in.',
+      );
+    }
+
+    const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await this.userModel
+      .findByIdAndUpdate(userId, { $set: { password: hashedPassword } })
+      .exec();
+  }
+
+  /**
+   * Update notification preferences.
+   * Merges the provided fields with the existing preferences.
+   */
+  async updateNotificationPreferences(
+    userId: string,
+    updateDto: UpdateNotificationPreferencesDto,
+  ): Promise<UserDocument> {
+    // Build $set object with dot notation to merge instead of overwrite
+    const setFields: Record<string, boolean> = {};
+    for (const [key, value] of Object.entries(updateDto)) {
+      if (value !== undefined) {
+        setFields[`notificationPreferences.${key}`] = value;
+      }
+    }
+
+    const user = await this.userModel
+      .findByIdAndUpdate(
+        userId,
+        { $set: setFields },
+        { new: true, runValidators: true },
+      )
+      .exec();
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return user;
   }
 }

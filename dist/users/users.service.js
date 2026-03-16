@@ -90,6 +90,63 @@ let UsersService = class UsersService {
     async countUsers(filter = {}) {
         return this.userModel.countDocuments(filter).exec();
     }
+    async deleteAccount(userId, password) {
+        const user = await this.userModel
+            .findById(userId)
+            .select('+password')
+            .exec();
+        if (!user) {
+            throw new common_1.NotFoundException('User not found');
+        }
+        if (user.authProvider === contants_1.AuthProvider.Google) {
+            throw new common_1.BadRequestException('Google accounts cannot be deleted with a password. Please contact support.');
+        }
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+        if (!isPasswordValid) {
+            throw new common_1.UnauthorizedException('Invalid password');
+        }
+        await this.userModel
+            .findByIdAndUpdate(userId, {
+            $set: { isDeleted: true, deletedAt: new Date() },
+        })
+            .exec();
+    }
+    async changePassword(userId, changePasswordDto) {
+        const { currentPassword, newPassword } = changePasswordDto;
+        const user = await this.userModel
+            .findById(userId)
+            .select('+password')
+            .exec();
+        if (!user) {
+            throw new common_1.NotFoundException('User not found');
+        }
+        if (user.authProvider === contants_1.AuthProvider.Google) {
+            throw new common_1.BadRequestException('Google accounts do not have a password to change. Please use Google sign-in.');
+        }
+        const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+        if (!isPasswordValid) {
+            throw new common_1.UnauthorizedException('Current password is incorrect');
+        }
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        await this.userModel
+            .findByIdAndUpdate(userId, { $set: { password: hashedPassword } })
+            .exec();
+    }
+    async updateNotificationPreferences(userId, updateDto) {
+        const setFields = {};
+        for (const [key, value] of Object.entries(updateDto)) {
+            if (value !== undefined) {
+                setFields[`notificationPreferences.${key}`] = value;
+            }
+        }
+        const user = await this.userModel
+            .findByIdAndUpdate(userId, { $set: setFields }, { new: true, runValidators: true })
+            .exec();
+        if (!user) {
+            throw new common_1.NotFoundException('User not found');
+        }
+        return user;
+    }
 };
 exports.UsersService = UsersService;
 exports.UsersService = UsersService = __decorate([

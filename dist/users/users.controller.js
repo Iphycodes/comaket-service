@@ -20,6 +20,9 @@ const users_service_1 = require("./users.service");
 const get_user_decorator_1 = require("../common/decorators/get-user.decorator");
 const response_message_decorator_1 = require("../common/decorators/response-message.decorator");
 const update_profile_dto_1 = require("./dto/update-profile.dto");
+const delete_account_dto_1 = require("./dto/delete-account.dto");
+const change_password_dto_1 = require("./dto/change-password.dto");
+const update_notification_preferences_dto_1 = require("./dto/update-notification-preferences.dto");
 let UsersController = class UsersController {
     constructor(usersService) {
         this.usersService = usersService;
@@ -29,6 +32,17 @@ let UsersController = class UsersController {
     }
     async updateProfile(user, updateProfileDto) {
         return this.usersService.updateProfile(user.sub, updateProfileDto);
+    }
+    async deleteAccount(user, deleteAccountDto) {
+        await this.usersService.deleteAccount(user.sub, deleteAccountDto.password);
+        return { message: 'Account deleted successfully' };
+    }
+    async changePassword(user, changePasswordDto) {
+        await this.usersService.changePassword(user.sub, changePasswordDto);
+        return { message: 'Password changed successfully' };
+    }
+    async updateNotificationPreferences(user, updateDto) {
+        return this.usersService.updateNotificationPreferences(user.sub, updateDto);
     }
 };
 exports.UsersController = UsersController;
@@ -52,6 +66,45 @@ __decorate([
     __metadata("design:paramtypes", [Object, update_profile_dto_1.UpdateProfileDto]),
     __metadata("design:returntype", Promise)
 ], UsersController.prototype, "updateProfile", null);
+__decorate([
+    (0, common_1.Delete)('me'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, response_message_decorator_1.ResponseMessage)('Account deleted successfully'),
+    (0, swagger_1.ApiOperation)({ summary: 'Soft-delete current user account' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Account deleted successfully' }),
+    (0, swagger_1.ApiResponse)({ status: 401, description: 'Invalid password' }),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, delete_account_dto_1.DeleteAccountDto]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "deleteAccount", null);
+__decorate([
+    (0, common_1.Patch)('me/password'),
+    (0, response_message_decorator_1.ResponseMessage)('Password changed successfully'),
+    (0, swagger_1.ApiOperation)({ summary: 'Change current user password' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Password changed successfully' }),
+    (0, swagger_1.ApiResponse)({ status: 401, description: 'Current password is incorrect' }),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, change_password_dto_1.ChangePasswordDto]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "changePassword", null);
+__decorate([
+    (0, common_1.Patch)('me/notifications'),
+    (0, response_message_decorator_1.ResponseMessage)('Notification preferences updated successfully'),
+    (0, swagger_1.ApiOperation)({ summary: 'Update notification preferences' }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: 'Notification preferences updated successfully',
+    }),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, update_notification_preferences_dto_1.UpdateNotificationPreferencesDto]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "updateNotificationPreferences", null);
 exports.UsersController = UsersController = __decorate([
     (0, swagger_1.ApiTags)('users'),
     (0, common_1.Controller)('users'),
