@@ -112,6 +112,23 @@ __decorate([
     __metadata("design:type", Date)
 ], User.prototype, "verificationExpires", void 0);
 __decorate([
+    (0, mongoose_1.Prop)({
+        type: {
+            emailNotifications: { type: Boolean, default: true },
+            pushNotifications: { type: Boolean, default: true },
+            orderUpdates: { type: Boolean, default: true },
+            promotions: { type: Boolean, default: false },
+        },
+        default: {
+            emailNotifications: true,
+            pushNotifications: true,
+            orderUpdates: true,
+            promotions: false,
+        },
+    }),
+    __metadata("design:type", Object)
+], User.prototype, "notificationPreferences", void 0);
+__decorate([
     (0, mongoose_1.Prop)({ select: false }),
     __metadata("design:type", String)
 ], User.prototype, "passwordResetToken", void 0);

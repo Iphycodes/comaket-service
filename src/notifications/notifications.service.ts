@@ -77,6 +77,7 @@ export class NotificationsService {
         port: port || 587,
         secure: port === 465, // true for 465, false for other ports
         auth: { user, pass: password },
+        family: 4, // Force IPv4 — cloud providers like Render often don't support IPv6
       });
 
       // Verify connection on startup

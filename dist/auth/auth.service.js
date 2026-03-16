@@ -59,7 +59,8 @@ let AuthService = class AuthService {
             throw new common_1.InternalServerErrorException('Failed to create user');
         }
         this.notificationsService.sendVerificationOtp(user.email, registerDto.firstName, otp);
-        return this.buildAuthResponse(user);
+        const { password, verificationCode, verificationExpires: vExp, ...userData } = user.toObject();
+        return userData;
     }
     async login(loginDto) {
         const { email, password } = loginDto;
@@ -73,6 +74,22 @@ let AuthService = class AuthService {
         const isPasswordValid = await bcrypt.compare(password, user.password);
         if (!isPasswordValid) {
             throw new common_1.UnauthorizedException('Invalid credentials');
+        }
+        if (!user.isEmailVerified) {
+            const otp = this.generateOTP();
+            const verificationExpires = new Date();
+            verificationExpires.setMinutes(verificationExpires.getMinutes() + 10);
+            await this.usersService.updateInternal(user._id.toString(), {
+                verificationCode: otp,
+                verificationExpires,
+            });
+            this.notificationsService.sendVerificationOtp(user.email, user.firstName, otp);
+            const { password: pw, verificationCode, verificationExpires: vExp, ...userData } = user.toObject();
+            return {
+                ...userData,
+                isEmailVerified: false,
+                requiresVerification: true,
+            };
         }
         return this.buildAuthResponse(user);
     }

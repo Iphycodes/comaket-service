@@ -34,6 +34,7 @@ const featured_works_module_1 = require("./featured-works/featured-works.module"
 const shipping_addresses_module_1 = require("./shipping-addresses/shipping-addresses.module");
 const platform_settings_module_1 = require("./platform-settings/platform-settings.module");
 const delivery_zones_module_1 = require("./delivery-zones/delivery-zones.module");
+const disputes_module_1 = require("./disputes/disputes.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -78,6 +79,7 @@ exports.AppModule = AppModule = __decorate([
             shipping_addresses_module_1.ShippingAddressesModule,
             platform_settings_module_1.PlatformSettingsModule,
             delivery_zones_module_1.DeliveryZonesModule,
+            disputes_module_1.DisputesModule,
         ],
         controllers: [app_controller_1.AppController],
     })

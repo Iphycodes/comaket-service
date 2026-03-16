@@ -46,6 +46,7 @@ import { FeaturedWorksModule } from './featured-works/featured-works.module';
 import { ShippingAddressesModule } from './shipping-addresses/shipping-addresses.module';
 import { PlatformSettingsModule } from './platform-settings/platform-settings.module';
 import { DeliveryZonesModule } from './delivery-zones/delivery-zones.module';
+import { DisputesModule } from './disputes/disputes.module';
 
 @Module({
   imports: [
@@ -111,6 +112,7 @@ import { DeliveryZonesModule } from './delivery-zones/delivery-zones.module';
     ShippingAddressesModule,
     PlatformSettingsModule,
     DeliveryZonesModule,
+    DisputesModule,
   ],
   controllers: [AppController],
 })

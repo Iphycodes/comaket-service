@@ -25,6 +25,12 @@ export declare class User extends BaseSchema {
     bio?: string;
     verificationCode?: string;
     verificationExpires?: Date;
+    notificationPreferences?: {
+        emailNotifications: boolean;
+        pushNotifications: boolean;
+        orderUpdates: boolean;
+        promotions: boolean;
+    };
     passwordResetToken?: string;
     passwordResetExpires?: Date;
 }
