@@ -14,6 +14,7 @@ exports.NotificationsService = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const nodemailer = require("nodemailer");
+const dns = require("dns");
 const email_templates_1 = require("./templates/email-templates");
 let NotificationsService = NotificationsService_1 = class NotificationsService {
     constructor(configService) {
@@ -39,6 +40,7 @@ let NotificationsService = NotificationsService_1 = class NotificationsService {
                 port: port || 587,
                 secure: port === 465,
                 auth: { user, pass: password },
+                dnsLookup: (hostname, opts, cb) => dns.lookup(hostname, { ...opts, family: 4 }, cb),
             });
             this.transporter
                 .verify()
