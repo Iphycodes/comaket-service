@@ -35,30 +35,43 @@ let NotificationsService = NotificationsService_1 = class NotificationsService {
         this.adminEmail = this.configService.get('app.adminEmail') || null;
         this.isConfigured = !!(host && user && password);
         if (this.isConfigured) {
-            this.transporter = nodemailer.createTransport({
-                host,
-                port: port || 587,
-                secure: port === 465,
-                auth: { user, pass: password },
-                dnsLookup: (hostname, opts, cb) => dns.lookup(hostname, { ...opts, family: 4 }, cb),
-            });
-            this.transporter
-                .verify()
-                .then(() => {
-                this.logger.log('══════════════════════════════════════════');
-                this.logger.log('✅ MAIL: SMTP connected and ready to send');
-                this.logger.log(`   Host: ${host}:${port || 587}`);
-                this.logger.log(`   From: ${this.fromAddress}`);
-                this.logger.log(`   Admin email: ${this.adminEmail || 'NOT SET — add ADMIN_EMAIL to .env'}`);
-                this.logger.log('══════════════════════════════════════════');
-            })
-                .catch((err) => {
-                this.logger.error('══════════════════════════════════════════');
-                this.logger.error(`❌ MAIL: SMTP connection FAILED — ${err.message}`);
-                this.logger.error('    order receipts will NOT be sent!');
-                this.logger.error(`   Check MAIL_HOST, MAIL_USER, MAIL_PASSWORD in .env`);
-                this.logger.error('══════════════════════════════════════════');
-            });
+            (async () => {
+                let resolvedHost = host;
+                try {
+                    const addresses = await dns.promises.resolve4(host);
+                    if (addresses?.length) {
+                        resolvedHost = addresses[0];
+                        this.logger.log(`Resolved ${host} → ${resolvedHost} (IPv4)`);
+                    }
+                }
+                catch {
+                    this.logger.warn(`Could not resolve ${host} to IPv4, using hostname directly`);
+                }
+                this.transporter = nodemailer.createTransport({
+                    host: resolvedHost,
+                    port: port || 587,
+                    secure: port === 465,
+                    auth: { user, pass: password },
+                    tls: { servername: host },
+                });
+                this.transporter
+                    .verify()
+                    .then(() => {
+                    this.logger.log('══════════════════════════════════════════');
+                    this.logger.log('✅ MAIL: SMTP connected and ready to send');
+                    this.logger.log(`   Host: ${resolvedHost}:${port || 587} (resolved from ${host})`);
+                    this.logger.log(`   From: ${this.fromAddress}`);
+                    this.logger.log(`   Admin email: ${this.adminEmail || 'NOT SET — add ADMIN_EMAIL to .env'}`);
+                    this.logger.log('══════════════════════════════════════════');
+                })
+                    .catch((err) => {
+                    this.logger.error('══════════════════════════════════════════');
+                    this.logger.error(`❌ MAIL: SMTP connection FAILED — ${err.message}`);
+                    this.logger.error('    order receipts will NOT be sent!');
+                    this.logger.error(`   Check MAIL_HOST, MAIL_USER, MAIL_PASSWORD in .env`);
+                    this.logger.error('══════════════════════════════════════════');
+                });
+            })();
         }
         else {
             this.logger.warn('══════════════════════════════════════════');
