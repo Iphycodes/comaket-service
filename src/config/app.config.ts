@@ -70,7 +70,8 @@ export default registerAs('app', () => ({
     apiSecret: process.env.CLOUDINARY_API_SECRET,
   },
 
-  // Mail
+  // Email — Resend (HTTP, recommended) or SMTP fallback
+  resendApiKey: process.env.RESEND_API_KEY || null,
   mail: {
     host: process.env.MAIL_HOST,
     port: parseInt(process.env.MAIL_PORT, 10) || 587,

@@ -13,6 +13,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.NotificationsService = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
+const resend_1 = require("resend");
 const nodemailer = require("nodemailer");
 const dns = require("dns");
 const email_templates_1 = require("./templates/email-templates");
@@ -20,11 +21,14 @@ let NotificationsService = NotificationsService_1 = class NotificationsService {
     constructor(configService) {
         this.configService = configService;
         this.logger = new common_1.Logger(NotificationsService_1.name);
+        this.resend = null;
+        this.transporter = null;
         const appName = this.configService.get('app.name') || 'Kraft';
         const logoUrl = this.configService.get('app.logoUrl') || null;
         const frontendUrl = this.configService.get('app.frontendUrl') ||
             'http://localhost:3000';
         this.brand = { appName, logoUrl, frontendUrl };
+        const resendApiKey = this.configService.get('app.resendApiKey');
         const host = this.configService.get('app.mail.host');
         const port = this.configService.get('app.mail.port');
         const user = this.configService.get('app.mail.user');
@@ -33,8 +37,19 @@ let NotificationsService = NotificationsService_1 = class NotificationsService {
             this.configService.get('app.mail.from') ||
                 `${appName} <noreply@kraft.ng>`;
         this.adminEmail = this.configService.get('app.adminEmail') || null;
-        this.isConfigured = !!(host && user && password);
-        if (this.isConfigured) {
+        if (resendApiKey) {
+            this.provider = 'resend';
+            this.isConfigured = true;
+            this.resend = new resend_1.Resend(resendApiKey);
+            this.logger.log('══════════════════════════════════════════');
+            this.logger.log('✅ MAIL: Resend (HTTP API) configured');
+            this.logger.log(`   From: ${this.fromAddress}`);
+            this.logger.log(`   Admin email: ${this.adminEmail || 'NOT SET — add ADMIN_EMAIL to .env'}`);
+            this.logger.log('══════════════════════════════════════════');
+        }
+        else if (host && user && password) {
+            this.provider = 'nodemailer';
+            this.isConfigured = true;
             (async () => {
                 let resolvedHost = host;
                 try {
@@ -59,7 +74,7 @@ let NotificationsService = NotificationsService_1 = class NotificationsService {
                     .then(() => {
                     this.logger.log('══════════════════════════════════════════');
                     this.logger.log('✅ MAIL: SMTP connected and ready to send');
-                    this.logger.log(`   Host: ${resolvedHost}:${port || 587} (resolved from ${host})`);
+                    this.logger.log(`   Host: ${resolvedHost}:${port || 587}`);
                     this.logger.log(`   From: ${this.fromAddress}`);
                     this.logger.log(`   Admin email: ${this.adminEmail || 'NOT SET — add ADMIN_EMAIL to .env'}`);
                     this.logger.log('══════════════════════════════════════════');
@@ -74,11 +89,12 @@ let NotificationsService = NotificationsService_1 = class NotificationsService {
             })();
         }
         else {
+            this.provider = 'none';
+            this.isConfigured = false;
             this.logger.warn('══════════════════════════════════════════');
             this.logger.warn('⚠️  MAIL: NOT CONFIGURED — emails will only log to console');
             this.logger.warn('    order receipts will NOT be sent!');
-            this.logger.warn('   To fix: set MAIL_HOST, MAIL_USER, MAIL_PASSWORD in .env');
-            this.logger.warn('   For Gmail: use App Password (not your regular password)');
+            this.logger.warn('   To fix: set RESEND_API_KEY (recommended) or MAIL_HOST/MAIL_USER/MAIL_PASSWORD in .env');
             this.logger.warn(`   Admin email: ${this.adminEmail || 'NOT SET'}`);
             this.logger.warn('══════════════════════════════════════════');
         }
@@ -86,25 +102,56 @@ let NotificationsService = NotificationsService_1 = class NotificationsService {
     async send(to, subject, html, options) {
         if (!this.isConfigured) {
             this.logger.warn('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-            this.logger.warn(`📧 EMAIL NOT SENT (SMTP not configured)`);
+            this.logger.warn(`📧 EMAIL NOT SENT (not configured)`);
             this.logger.warn(`   To: ${to}`);
             this.logger.warn(`   Subject: ${subject}`);
-            this.logger.warn('   ⚠️  Set MAIL_HOST/MAIL_USER/MAIL_PASSWORD in .env to send for real');
+            this.logger.warn('   ⚠️  Set RESEND_API_KEY or MAIL_HOST/MAIL_USER/MAIL_PASSWORD in .env');
             this.logger.warn('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
             return;
         }
         try {
-            const mailOptions = {
-                from: this.fromAddress,
-                to,
-                subject,
-                html,
-            };
-            if (options?.bccAdmin && this.adminEmail) {
-                mailOptions.bcc = this.adminEmail;
+            if (this.provider === 'resend' && this.resend) {
+                const payload = {
+                    from: this.fromAddress,
+                    to: [to],
+                    subject,
+                    html,
+                };
+                if (options?.bccAdmin && this.adminEmail) {
+                    payload.bcc = [this.adminEmail];
+                }
+                const { error } = await this.resend.emails.send(payload);
+                if (error) {
+                    throw new Error(error.message);
+                }
+                this.logger.log(`📧 Email sent to ${to} via Resend`);
             }
-            const info = await this.transporter.sendMail(mailOptions);
-            this.logger.log(`📧 Email sent to ${to} — MessageId: ${info.messageId}`);
+            else if (this.provider === 'nodemailer' && this.transporter) {
+                const mailOptions = {
+                    from: this.fromAddress,
+                    to,
+                    subject,
+                    html,
+                };
+                if (options?.bccAdmin && this.adminEmail) {
+                    mailOptions.bcc = this.adminEmail;
+                }
+                const info = await this.transporter.sendMail(mailOptions);
+                this.logger.log(`📧 Email sent to ${to} — MessageId: ${info.messageId}`);
+            }
+            else {
+                this.logger.warn(`📧 Email provider not ready yet, retrying in 3s...`);
+                await new Promise((r) => setTimeout(r, 3000));
+                if (this.transporter) {
+                    const info = await this.transporter.sendMail({
+                        from: this.fromAddress,
+                        to,
+                        subject,
+                        html,
+                    });
+                    this.logger.log(`📧 Email sent to ${to} (retry) — MessageId: ${info.messageId}`);
+                }
+            }
         }
         catch (error) {
             this.logger.error(`❌ Failed to send email to ${to}: ${error.message}`);

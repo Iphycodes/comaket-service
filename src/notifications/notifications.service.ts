@@ -1,7 +1,7 @@
 /**
  * notifications/notifications.service.ts - Email Notification Service
  * =====================================================================
- * Sends transactional emails using Nodemailer.
+ * Sends transactional emails via Resend (HTTP API) or Nodemailer (SMTP).
  *
  * This is a pure service (no controller) — other modules call it
  * when they need to send an email:
@@ -10,24 +10,21 @@
  *   OrdersService     → sendOrderConfirmation(), sendNewOrderAlert()
  *   ListingsService   → sendListingApproved(), sendListingRejected()
  *
- * SETUP:
- *   npm install nodemailer
- *   npm install -D @types/nodemailer
+ * PROVIDER SELECTION (automatic):
+ *   - If RESEND_API_KEY is set → uses Resend (HTTP, works on all cloud providers)
+ *   - Else if MAIL_HOST/USER/PASSWORD → falls back to Nodemailer (SMTP)
+ *   - Else → logs emails to console (dev fallback)
  *
- * GMAIL SETUP (for development):
- *   1. Enable 2FA on your Google account
- *   2. Go to: https://myaccount.google.com/apppasswords
- *   3. Create an "App Password" for "Mail"
- *   4. Use that password as MAIL_PASSWORD in .env
- *   5. Use your Gmail as MAIL_USER
- *
- * PRODUCTION:
- *   Use a proper email service like SendGrid, Mailgun, or Amazon SES.
- *   Just change the transport config — the templates stay the same.
+ * RESEND SETUP:
+ *   1. Sign up at https://resend.com
+ *   2. Add & verify your domain (or use onboarding@resend.dev for testing)
+ *   3. Get your API key from the dashboard
+ *   4. Set RESEND_API_KEY in .env
  */
 
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Resend } from 'resend';
 import * as nodemailer from 'nodemailer';
 import * as dns from 'dns';
 import {
@@ -42,13 +39,17 @@ import {
   listingRejectedTemplate,
 } from './templates/email-templates';
 
+type EmailProvider = 'resend' | 'nodemailer' | 'none';
+
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
-  private transporter: nodemailer.Transporter;
+  private resend: Resend | null = null;
+  private transporter: nodemailer.Transporter | null = null;
   private readonly fromAddress: string;
   private readonly adminEmail: string | null;
   private readonly isConfigured: boolean;
+  private readonly provider: EmailProvider;
   private readonly brand: EmailBrand;
 
   constructor(private configService: ConfigService) {
@@ -60,6 +61,7 @@ export class NotificationsService {
 
     this.brand = { appName, logoUrl, frontendUrl };
 
+    const resendApiKey = this.configService.get<string>('app.resendApiKey');
     const host = this.configService.get<string>('app.mail.host');
     const port = this.configService.get<number>('app.mail.port');
     const user = this.configService.get<string>('app.mail.user');
@@ -69,12 +71,22 @@ export class NotificationsService {
       `${appName} <noreply@kraft.ng>`;
     this.adminEmail = this.configService.get<string>('app.adminEmail') || null;
 
-    // Only create transporter if mail credentials are configured
-    this.isConfigured = !!(host && user && password);
-
-    if (this.isConfigured) {
+    // Pick provider: Resend (HTTP) > Nodemailer (SMTP) > none
+    if (resendApiKey) {
+      this.provider = 'resend';
+      this.isConfigured = true;
+      this.resend = new Resend(resendApiKey);
+      this.logger.log('══════════════════════════════════════════');
+      this.logger.log('✅ MAIL: Resend (HTTP API) configured');
+      this.logger.log(`   From: ${this.fromAddress}`);
+      this.logger.log(
+        `   Admin email: ${this.adminEmail || 'NOT SET — add ADMIN_EMAIL to .env'}`,
+      );
+      this.logger.log('══════════════════════════════════════════');
+    } else if (host && user && password) {
+      this.provider = 'nodemailer';
+      this.isConfigured = true;
       // Resolve SMTP host to IPv4, then create transporter
-      // Cloud providers like Render often lack IPv6, causing ENETUNREACH
       (async () => {
         let resolvedHost = host;
         try {
@@ -100,7 +112,7 @@ export class NotificationsService {
           .then(() => {
             this.logger.log('══════════════════════════════════════════');
             this.logger.log('✅ MAIL: SMTP connected and ready to send');
-            this.logger.log(`   Host: ${resolvedHost}:${port || 587} (resolved from ${host})`);
+            this.logger.log(`   Host: ${resolvedHost}:${port || 587}`);
             this.logger.log(`   From: ${this.fromAddress}`);
             this.logger.log(
               `   Admin email: ${this.adminEmail || 'NOT SET — add ADMIN_EMAIL to .env'}`,
@@ -118,16 +130,15 @@ export class NotificationsService {
           });
       })();
     } else {
+      this.provider = 'none';
+      this.isConfigured = false;
       this.logger.warn('══════════════════════════════════════════');
       this.logger.warn(
         '⚠️  MAIL: NOT CONFIGURED — emails will only log to console',
       );
       this.logger.warn('    order receipts will NOT be sent!');
       this.logger.warn(
-        '   To fix: set MAIL_HOST, MAIL_USER, MAIL_PASSWORD in .env',
-      );
-      this.logger.warn(
-        '   For Gmail: use App Password (not your regular password)',
+        '   To fix: set RESEND_API_KEY (recommended) or MAIL_HOST/MAIL_USER/MAIL_PASSWORD in .env',
       );
       this.logger.warn(`   Admin email: ${this.adminEmail || 'NOT SET'}`);
       this.logger.warn('══════════════════════════════════════════');
@@ -136,10 +147,6 @@ export class NotificationsService {
 
   // ─── Core Send Method ────────────────────────────────────
 
-  /**
-   * Send an email. If mail isn't configured, logs to console instead.
-   * Optionally BCC the admin email on order-related notifications.
-   */
   private async send(
     to: string,
     subject: string,
@@ -147,33 +154,59 @@ export class NotificationsService {
     options?: { bccAdmin?: boolean },
   ): Promise<void> {
     if (!this.isConfigured) {
-      // Development fallback: log to console — EMAIL IS NOT ACTUALLY SENT
       this.logger.warn('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      this.logger.warn(`📧 EMAIL NOT SENT (SMTP not configured)`);
+      this.logger.warn(`📧 EMAIL NOT SENT (not configured)`);
       this.logger.warn(`   To: ${to}`);
       this.logger.warn(`   Subject: ${subject}`);
       this.logger.warn(
-        '   ⚠️  Set MAIL_HOST/MAIL_USER/MAIL_PASSWORD in .env to send for real',
+        '   ⚠️  Set RESEND_API_KEY or MAIL_HOST/MAIL_USER/MAIL_PASSWORD in .env',
       );
       this.logger.warn('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       return;
     }
 
     try {
-      const mailOptions: any = {
-        from: this.fromAddress,
-        to,
-        subject,
-        html,
-      };
-
-      // BCC admin on order emails
-      if (options?.bccAdmin && this.adminEmail) {
-        mailOptions.bcc = this.adminEmail;
+      if (this.provider === 'resend' && this.resend) {
+        const payload: any = {
+          from: this.fromAddress,
+          to: [to],
+          subject,
+          html,
+        };
+        if (options?.bccAdmin && this.adminEmail) {
+          payload.bcc = [this.adminEmail];
+        }
+        const { error } = await this.resend.emails.send(payload);
+        if (error) {
+          throw new Error(error.message);
+        }
+        this.logger.log(`📧 Email sent to ${to} via Resend`);
+      } else if (this.provider === 'nodemailer' && this.transporter) {
+        const mailOptions: any = {
+          from: this.fromAddress,
+          to,
+          subject,
+          html,
+        };
+        if (options?.bccAdmin && this.adminEmail) {
+          mailOptions.bcc = this.adminEmail;
+        }
+        const info = await this.transporter.sendMail(mailOptions);
+        this.logger.log(`📧 Email sent to ${to} — MessageId: ${info.messageId}`);
+      } else {
+        this.logger.warn(`📧 Email provider not ready yet, retrying in 3s...`);
+        // Transporter might not be initialized yet (async DNS resolution)
+        await new Promise((r) => setTimeout(r, 3000));
+        if (this.transporter) {
+          const info = await this.transporter.sendMail({
+            from: this.fromAddress,
+            to,
+            subject,
+            html,
+          });
+          this.logger.log(`📧 Email sent to ${to} (retry) — MessageId: ${info.messageId}`);
+        }
       }
-
-      const info = await this.transporter.sendMail(mailOptions);
-      this.logger.log(`📧 Email sent to ${to} — MessageId: ${info.messageId}`);
     } catch (error) {
       this.logger.error(`❌ Failed to send email to ${to}: ${error.message}`);
     }
@@ -181,10 +214,6 @@ export class NotificationsService {
 
   // ─── Public Raw Email Method ─────────────────────────────
 
-  /**
-   * Send a raw HTML email. Used by services that need to send
-   * custom one-off emails (e.g., admin invites).
-   */
   async sendRawEmail(to: string, subject: string, html: string): Promise<void> {
     await this.send(to, subject, html);
   }
@@ -193,10 +222,6 @@ export class NotificationsService {
   // AUTH EMAILS
   // ═══════════════════════════════════════════════════════════
 
-  /**
-   * Send verification OTP after registration.
-   * Called by AuthService.register() and AuthService.resendVerification()
-   */
   async sendVerificationOtp(
     email: string,
     firstName: string,
@@ -209,23 +234,11 @@ export class NotificationsService {
     await this.send(email, subject, html);
   }
 
-  /**
-   * Send welcome email after email verification.
-   * Called by AuthService.verifyEmail()
-   */
   async sendWelcome(email: string, firstName: string): Promise<void> {
     const { subject, html } = welcomeTemplate(this.brand, { firstName });
     await this.send(email, subject, html);
   }
 
-  /**
-   * Send password reset link.
-   * Called by AuthService.forgotPassword()
-   *
-   * NOTE: We send the RAW (unhashed) token in the email link.
-   * The hashed version is stored in the database.
-   * When the user clicks the link, we hash what they send and compare.
-   */
   async sendPasswordReset(
     email: string,
     firstName: string,
@@ -247,10 +260,6 @@ export class NotificationsService {
   // ORDER EMAILS
   // ═══════════════════════════════════════════════════════════
 
-  /**
-   * Send order confirmation to the BUYER after payment.
-   * Called by OrdersService.confirmPayment()
-   */
   async sendOrderConfirmation(
     buyerEmail: string,
     data: {
@@ -270,10 +279,6 @@ export class NotificationsService {
     await this.send(buyerEmail, subject, html);
   }
 
-  /**
-   * Send a copy of the order confirmation to the admin email.
-   * Sent as a separate email (not BCC) to guarantee delivery.
-   */
   async sendAdminOrderCopy(data: {
     buyerName: string;
     orderNumber: string;
@@ -292,10 +297,6 @@ export class NotificationsService {
     await this.send(this.adminEmail, `[Admin Copy] ${subject}`, html);
   }
 
-  /**
-   * Alert the SELLER that someone bought their item.
-   * Called by OrdersService.confirmPayment()
-   */
   async sendNewOrderAlert(
     sellerEmail: string,
     data: {
@@ -311,10 +312,6 @@ export class NotificationsService {
     await this.send(sellerEmail, subject, html);
   }
 
-  /**
-   * Notify buyer when order status changes.
-   * Called by OrdersService.updateStatus()
-   */
   async sendOrderStatusUpdate(
     buyerEmail: string,
     data: {
@@ -333,10 +330,6 @@ export class NotificationsService {
   // LISTING EMAILS
   // ═══════════════════════════════════════════════════════════
 
-  /**
-   * Notify seller when their listing is approved.
-   * Called by ListingsService.adminReview()
-   */
   async sendListingApproved(
     sellerEmail: string,
     sellerName: string,
@@ -349,10 +342,6 @@ export class NotificationsService {
     await this.send(sellerEmail, subject, html);
   }
 
-  /**
-   * Notify seller when their listing is rejected.
-   * Called by ListingsService.adminReview()
-   */
   async sendListingRejected(
     sellerEmail: string,
     sellerName: string,
