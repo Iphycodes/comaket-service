@@ -10,7 +10,7 @@ import {
   StoreStatus,
   UserRole,
 } from '@config/contants';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import {
   IsArray,
   IsBoolean,
@@ -202,4 +202,23 @@ export class AdminCreateListingDto {
   @Min(0)
   @IsOptional()
   commissionRate?: number;
+
+  @ApiPropertyOptional({
+    example: '+2348012345678',
+    description: 'WhatsApp number for self-listing contact',
+  })
+  @IsString()
+  @IsOptional()
+  whatsappNumber?: string;
+
+  @ApiPropertyOptional({
+    example: 1500000,
+    description: 'Discounted price in kobo. If set, askingPrice becomes the former price (struck through)',
+  })
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  discountPrice?: number;
 }
+
+export class AdminUpdateListingDto extends PartialType(AdminCreateListingDto) {}

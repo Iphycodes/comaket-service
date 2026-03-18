@@ -513,15 +513,39 @@ export class AdminService {
    * Update store status (suspend, activate, etc.)
    */
   async updateStoreStatus(storeId: string, status: StoreStatus) {
-    const store = await this.storeModel
-      .findByIdAndUpdate(storeId, { $set: { status } }, { new: true })
-      .exec();
+    const store = await this.storeModel.findById(storeId).exec();
 
     if (!store) {
       throw new NotFoundException('Store not found');
     }
 
-    return store;
+    // Prevent suspending/closing the official admin store
+    if (store.slug === 'kraft-official' && (status === StoreStatus.Suspended || status === StoreStatus.Closed)) {
+      throw new BadRequestException('Cannot suspend or close the official Kraft store');
+    }
+
+    store.status = status;
+    return store.save();
+  }
+
+  /**
+   * Update store verification status
+   */
+  async updateStoreVerification(storeId: string, isVerified: boolean, isSuperVerified: boolean) {
+    const store = await this.storeModel.findById(storeId).exec();
+    if (!store) {
+      throw new NotFoundException('Store not found');
+    }
+
+    store.isVerified = isVerified;
+    store.isSuperVerified = isSuperVerified;
+
+    // Super-verified implies verified
+    if (isSuperVerified) {
+      store.isVerified = true;
+    }
+
+    return store.save();
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -746,17 +770,35 @@ export class AdminService {
     if (dto.sellingPrice != null) adminPricing.sellingPrice = dto.sellingPrice;
     if (dto.commissionRate != null) adminPricing.commissionRate = dto.commissionRate;
 
+    // Handle discount pricing
+    const discountFields: Record<string, any> = {};
+    if (dto.discountPrice != null && dto.discountPrice > 0) {
+      const originalPrice = dto.askingPrice?.amount || 0;
+      discountFields.discountPrice = dto.discountPrice;
+      discountFields.formerPrice = originalPrice;
+      discountFields.discountPercent = originalPrice > 0
+        ? Math.round(((originalPrice - dto.discountPrice) / originalPrice) * 100)
+        : 0;
+      // Swap: askingPrice becomes the discount price (used for all operations)
+      // formerPrice stores the original
+      discountFields.askingPrice = {
+        ...dto.askingPrice,
+        amount: dto.discountPrice,
+      };
+    }
+
     const listing = new this.listingModel({
       itemName: dto.itemName,
       description: dto.description,
       condition: dto.condition,
       type: dto.type,
-      askingPrice: dto.askingPrice,
+      askingPrice: discountFields.askingPrice || dto.askingPrice,
       media: dto.media,
       category: dto.category || null,
       tags: dto.tags || [],
       quantity: dto.quantity || 1,
       location: dto.location || null,
+      whatsappNumber: dto.whatsappNumber || null,
       storeId: store._id,
       creatorId: store.creatorId,
       userId: store.userId,
@@ -767,6 +809,11 @@ export class AdminService {
         adminNotes: 'Admin-created listing — bypassed review.',
       },
       ...(Object.keys(adminPricing).length > 0 ? { adminPricing } : {}),
+      ...(discountFields.formerPrice ? {
+        formerPrice: discountFields.formerPrice,
+        discountPrice: discountFields.discountPrice,
+        discountPercent: discountFields.discountPercent,
+      } : {}),
     });
 
     const saved = await listing.save();
@@ -777,6 +824,133 @@ export class AdminService {
       .exec();
 
     return saved;
+  }
+
+  // ── Get single listing ───────────────────────────────────────────
+  async adminGetListing(listingId: string) {
+    const listing = await this.listingModel
+      .findById(listingId)
+      .populate('creatorId', 'username profileImageUrl')
+      .populate('storeId', 'name logo')
+      .populate('userId', 'firstName lastName email')
+      .exec();
+    if (!listing) {
+      throw new NotFoundException('Listing not found');
+    }
+    return listing;
+  }
+
+  // ── Update admin listing ─────────────────────────────────────────
+  async adminUpdateListing(listingId: string, dto: any) {
+    const listing = await this.listingModel.findById(listingId).exec();
+    if (!listing) {
+      throw new NotFoundException('Listing not found');
+    }
+
+    // Update basic fields
+    if (dto.itemName != null) listing.itemName = dto.itemName;
+    if (dto.description != null) listing.description = dto.description;
+    if (dto.condition != null) listing.condition = dto.condition;
+    if (dto.type != null) listing.type = dto.type;
+    if (dto.category != null) listing.category = dto.category;
+    if (dto.tags != null) listing.tags = dto.tags;
+    if (dto.quantity != null) listing.quantity = dto.quantity;
+    if (dto.whatsappNumber != null) listing.whatsappNumber = dto.whatsappNumber;
+    if (dto.location != null) listing.location = dto.location;
+    if (dto.media != null) listing.media = dto.media;
+
+    // Update price
+    if (dto.askingPrice != null) {
+      listing.askingPrice = dto.askingPrice;
+    }
+
+    // Handle discount pricing
+    if (dto.discountPrice != null && dto.discountPrice > 0) {
+      const originalPrice = dto.askingPrice?.amount || listing.askingPrice?.amount || 0;
+      listing.discountPrice = dto.discountPrice;
+      listing.formerPrice = originalPrice;
+      listing.discountPercent = originalPrice > 0
+        ? Math.round(((originalPrice - dto.discountPrice) / originalPrice) * 100)
+        : 0;
+      // Swap: askingPrice becomes the discount price
+      listing.askingPrice = {
+        ...(dto.askingPrice || listing.askingPrice),
+        amount: dto.discountPrice,
+      } as any;
+    } else if (dto.discountPrice === 0 || dto.discountPrice === null) {
+      // Remove discount
+      listing.discountPrice = null;
+      listing.formerPrice = null;
+      listing.discountPercent = null;
+    }
+
+    return listing.save();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // OFFICIAL STORE MANAGEMENT
+  // ═══════════════════════════════════════════════════════════════════
+
+  async getOfficialStore() {
+    const store = await this.storeModel
+      .findOne({ slug: 'kraft-official' })
+      .exec();
+    if (!store) {
+      throw new NotFoundException('Official store not found. Run seed script.');
+    }
+    return store;
+  }
+
+  async updateOfficialStore(updates: Record<string, any>) {
+    const store = await this.storeModel
+      .findOne({ slug: 'kraft-official' })
+      .exec();
+    if (!store) {
+      throw new NotFoundException('Official store not found. Run seed script.');
+    }
+
+    const allowedFields = [
+      'name', 'description', 'tagline', 'logo', 'coverImage',
+      'phoneNumber', 'whatsappNumber', 'email', 'website',
+      'categories', 'tags', 'location', 'socialLinks',
+    ];
+
+    for (const key of allowedFields) {
+      if (updates[key] !== undefined) {
+        (store as any)[key] = updates[key];
+      }
+    }
+
+    // Regenerate slug if name changed
+    if (updates.name && updates.name !== store.name) {
+      const slug = updates.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '');
+      (store as any).slug = slug || 'kraft-official';
+    }
+
+    return store.save();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // ADMIN PROFILE
+  // ═══════════════════════════════════════════════════════════════════
+
+  async getAdminProfile(userId: string) {
+    return this.userModel.findById(userId).select('-password').exec();
+  }
+
+  async updateAdminProfile(userId: string, updates: Record<string, any>) {
+    const allowedFields = ['firstName', 'lastName', 'avatar', 'mobile', 'gender', 'country', 'state', 'city', 'bio'];
+    const updateObj: Record<string, any> = {};
+    for (const key of allowedFields) {
+      if (updates[key] !== undefined) updateObj[key] = updates[key];
+    }
+    return this.userModel
+      .findByIdAndUpdate(userId, { $set: updateObj }, { new: true })
+      .select('-password')
+      .exec();
   }
 
   private generateTempPassword(): string {

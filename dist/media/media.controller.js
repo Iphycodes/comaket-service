@@ -159,7 +159,7 @@ __decorate([
     (0, swagger_1.ApiBearerAuth)('JWT-auth'),
     (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file', {
         storage: (0, multer_1.memoryStorage)(),
-        limits: { fileSize: 10 * 1024 * 1024 },
+        limits: { fileSize: 15 * 1024 * 1024 },
     })),
     (0, swagger_1.ApiConsumes)('multipart/form-data'),
     (0, response_message_decorator_1.ResponseMessage)('File uploaded successfully'),

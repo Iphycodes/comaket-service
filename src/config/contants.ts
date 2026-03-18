@@ -84,6 +84,7 @@ export enum ListingType {
   SelfListing = 'self_listing',
   Consignment = 'consignment',
   DirectPurchase = 'direct_purchase',
+  Admin = 'admin', // Admin-created listing (purchasable on app, like consignment)
 }
 
 export enum ListingStatus {
@@ -97,6 +98,7 @@ export enum ListingStatus {
   CounterOffer = 'counter_offer', // Direct purchase: seller sent a counter-offer
   Live = 'live', // Visible on marketplace
   Sold = 'sold', // Item has been sold
+  SoldToPlatform = 'sold_to_platform', // Direct purchase: product received by platform, listing complete
   Suspended = 'suspended', // Admin took it down
   Expired = 'expired', // TTL expired
   Delisted = 'delisted', // Seller removed from marketplace

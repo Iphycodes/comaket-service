@@ -27,7 +27,8 @@ export declare enum StoreStatus {
 export declare enum ListingType {
     SelfListing = "self_listing",
     Consignment = "consignment",
-    DirectPurchase = "direct_purchase"
+    DirectPurchase = "direct_purchase",
+    Admin = "admin"
 }
 export declare enum ListingStatus {
     Draft = "draft",
@@ -40,6 +41,7 @@ export declare enum ListingStatus {
     CounterOffer = "counter_offer",
     Live = "live",
     Sold = "sold",
+    SoldToPlatform = "sold_to_platform",
     Suspended = "suspended",
     Expired = "expired",
     Delisted = "delisted"

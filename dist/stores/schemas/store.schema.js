@@ -168,6 +168,14 @@ __decorate([
     __metadata("design:type", Boolean)
 ], Store.prototype, "isVisible", void 0);
 __decorate([
+    (0, mongoose_1.Prop)({ type: Boolean, default: false }),
+    __metadata("design:type", Boolean)
+], Store.prototype, "isVerified", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: Boolean, default: false }),
+    __metadata("design:type", Boolean)
+], Store.prototype, "isSuperVerified", void 0);
+__decorate([
     (0, mongoose_1.Prop)({ type: Number, default: 0 }),
     __metadata("design:type", Number)
 ], Store.prototype, "totalListings", void 0);

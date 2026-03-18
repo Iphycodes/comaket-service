@@ -37,6 +37,7 @@ var ListingType;
     ListingType["SelfListing"] = "self_listing";
     ListingType["Consignment"] = "consignment";
     ListingType["DirectPurchase"] = "direct_purchase";
+    ListingType["Admin"] = "admin";
 })(ListingType || (exports.ListingType = ListingType = {}));
 var ListingStatus;
 (function (ListingStatus) {
@@ -50,6 +51,7 @@ var ListingStatus;
     ListingStatus["CounterOffer"] = "counter_offer";
     ListingStatus["Live"] = "live";
     ListingStatus["Sold"] = "sold";
+    ListingStatus["SoldToPlatform"] = "sold_to_platform";
     ListingStatus["Suspended"] = "suspended";
     ListingStatus["Expired"] = "expired";
     ListingStatus["Delisted"] = "delisted";

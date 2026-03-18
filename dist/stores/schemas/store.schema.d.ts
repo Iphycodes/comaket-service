@@ -58,6 +58,8 @@ export declare class Store extends BaseSchema {
     };
     status: StoreStatus;
     isVisible: boolean;
+    isVerified: boolean;
+    isSuperVerified: boolean;
     totalListings: number;
     totalSales: number;
     rating: number;

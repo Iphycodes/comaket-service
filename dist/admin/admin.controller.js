@@ -59,9 +59,32 @@ let AdminController = class AdminController {
     async updateStoreStatus(storeId, dto) {
         return this.adminService.updateStoreStatus(storeId, dto.status);
     }
+    async updateStoreVerification(storeId, body) {
+        return this.adminService.updateStoreVerification(storeId, body.isVerified ?? false, body.isSuperVerified ?? false);
+    }
     async adminCreateListing(dto, req) {
         const adminUserId = req.user.sub || req.user._id;
         return this.adminService.adminCreateListing(dto, adminUserId);
+    }
+    async adminUpdateListing(listingId, dto) {
+        return this.adminService.adminUpdateListing(listingId, dto);
+    }
+    async adminGetListing(listingId) {
+        return this.adminService.adminGetListing(listingId);
+    }
+    async getOfficialStore() {
+        return this.adminService.getOfficialStore();
+    }
+    async updateOfficialStore(body) {
+        return this.adminService.updateOfficialStore(body);
+    }
+    async getAdminProfile(req) {
+        const userId = req.user.sub || req.user._id;
+        return this.adminService.getAdminProfile(userId);
+    }
+    async updateAdminProfile(req, body) {
+        const userId = req.user.sub || req.user._id;
+        return this.adminService.updateAdminProfile(userId, body);
     }
     async listReviews(query) {
         return this.adminService.listReviews(query.page ? +query.page : 1, query.perPage ? +query.perPage : 20, query.search, query.anonymous, query.creatorId, query.storeId);
@@ -205,7 +228,7 @@ __decorate([
     (0, response_message_decorator_1.ResponseMessage)('Store status updated'),
     (0, swagger_1.ApiOperation)({
         summary: 'Update store status',
-        description: 'Suspend, activate, or close a store',
+        description: 'Suspend, activate, or close a store. Cannot suspend/close the official Kraft store.',
     }),
     (0, swagger_1.ApiParam)({ name: 'id', description: 'Store MongoDB ID' }),
     __param(0, (0, common_1.Param)('id')),
@@ -214,6 +237,20 @@ __decorate([
     __metadata("design:paramtypes", [String, admin_dto_1.UpdateStoreStatusDto]),
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "updateStoreStatus", null);
+__decorate([
+    (0, common_1.Patch)('stores/:id/verification'),
+    (0, response_message_decorator_1.ResponseMessage)('Store verification updated'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Update store verification status',
+        description: 'Verify, super-verify, or unverify a store',
+    }),
+    (0, swagger_1.ApiParam)({ name: 'id', description: 'Store MongoDB ID' }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "updateStoreVerification", null);
 __decorate([
     (0, common_1.Post)('listings/create'),
     (0, response_message_decorator_1.ResponseMessage)('Listing created and live'),
@@ -229,6 +266,62 @@ __decorate([
     __metadata("design:paramtypes", [admin_dto_1.AdminCreateListingDto, Object]),
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "adminCreateListing", null);
+__decorate([
+    (0, common_1.Patch)('listings/:id'),
+    (0, response_message_decorator_1.ResponseMessage)('Listing updated'),
+    (0, swagger_1.ApiOperation)({ summary: 'Update an admin listing' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Listing updated' }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, admin_dto_1.AdminUpdateListingDto]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "adminUpdateListing", null);
+__decorate([
+    (0, common_1.Get)('listings/:id'),
+    (0, response_message_decorator_1.ResponseMessage)('Listing fetched'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get a single listing by ID' }),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "adminGetListing", null);
+__decorate([
+    (0, common_1.Get)('official-store'),
+    (0, response_message_decorator_1.ResponseMessage)('Official store details'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get official Kraft store details' }),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "getOfficialStore", null);
+__decorate([
+    (0, common_1.Patch)('official-store'),
+    (0, response_message_decorator_1.ResponseMessage)('Official store updated'),
+    (0, swagger_1.ApiOperation)({ summary: 'Update official Kraft store details' }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "updateOfficialStore", null);
+__decorate([
+    (0, common_1.Get)('profile'),
+    (0, response_message_decorator_1.ResponseMessage)('Admin profile'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get current admin profile' }),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "getAdminProfile", null);
+__decorate([
+    (0, common_1.Patch)('profile'),
+    (0, response_message_decorator_1.ResponseMessage)('Admin profile updated'),
+    (0, swagger_1.ApiOperation)({ summary: 'Update current admin profile' }),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "updateAdminProfile", null);
 __decorate([
     (0, common_1.Get)('reviews'),
     (0, swagger_1.ApiOperation)({

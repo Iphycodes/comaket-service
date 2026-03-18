@@ -9,7 +9,7 @@ import { User, UserDocument } from '../users/schemas/user.schema';
 import { Creator, CreatorDocument } from '../creators/schemas/creator.schema';
 import { Store, StoreDocument } from '../stores/schemas/store.schema';
 import { ReviewDocument } from '../reviews/schemas/review.schema';
-import { ListingDocument } from '../listings/schemas/listing.schema';
+import { Listing, ListingDocument } from '../listings/schemas/listing.schema';
 import { AdminCreateListingDto } from './dto/admin.dto';
 import { PaginatedResponse } from '@common/interfaces/paginated-response.interface';
 import { CreatorStatus, StoreStatus, UserRole } from '@config/contants';
@@ -127,6 +127,9 @@ export declare class AdminService {
     updateStoreStatus(storeId: string, status: StoreStatus): Promise<import("mongoose").Document<unknown, {}, StoreDocument> & Store & import("mongoose").Document<any, any, any> & {
         _id: Types.ObjectId;
     }>;
+    updateStoreVerification(storeId: string, isVerified: boolean, isSuperVerified: boolean): Promise<import("mongoose").Document<unknown, {}, StoreDocument> & Store & import("mongoose").Document<any, any, any> & {
+        _id: Types.ObjectId;
+    }>;
     listReviews(page?: number, perPage?: number, search?: string, anonymous?: string, creatorId?: string, storeId?: string): Promise<PaginatedResponse<ReviewDocument>>;
     deleteReview(reviewId: string): Promise<{
         deleted: boolean;
@@ -148,5 +151,23 @@ export declare class AdminService {
         _id: Types.ObjectId;
     })[]>;
     adminCreateListing(dto: AdminCreateListingDto, adminUserId: string): Promise<ListingDocument>;
+    adminGetListing(listingId: string): Promise<import("mongoose").Document<unknown, {}, ListingDocument> & Listing & import("mongoose").Document<any, any, any> & {
+        _id: Types.ObjectId;
+    }>;
+    adminUpdateListing(listingId: string, dto: any): Promise<import("mongoose").Document<unknown, {}, ListingDocument> & Listing & import("mongoose").Document<any, any, any> & {
+        _id: Types.ObjectId;
+    }>;
+    getOfficialStore(): Promise<import("mongoose").Document<unknown, {}, StoreDocument> & Store & import("mongoose").Document<any, any, any> & {
+        _id: Types.ObjectId;
+    }>;
+    updateOfficialStore(updates: Record<string, any>): Promise<import("mongoose").Document<unknown, {}, StoreDocument> & Store & import("mongoose").Document<any, any, any> & {
+        _id: Types.ObjectId;
+    }>;
+    getAdminProfile(userId: string): Promise<import("mongoose").Document<unknown, {}, UserDocument> & User & import("mongoose").Document<any, any, any> & {
+        _id: Types.ObjectId;
+    }>;
+    updateAdminProfile(userId: string, updates: Record<string, any>): Promise<import("mongoose").Document<unknown, {}, UserDocument> & User & import("mongoose").Document<any, any, any> & {
+        _id: Types.ObjectId;
+    }>;
     private generateTempPassword;
 }

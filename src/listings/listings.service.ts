@@ -233,7 +233,7 @@ export class ListingsService {
       .populate({
         path: 'storeId',
         select:
-          'name slug logo description phoneNumber whatsappNumber address category tags status',
+          'name slug logo description phoneNumber whatsappNumber address category tags status isVerified isSuperVerified',
       })
       .populate({
         path: 'creatorId',
@@ -397,6 +397,7 @@ export class ListingsService {
    *   mark_awaiting_fee     → Self-listing: approved, waiting for fee payment
    *   mark_awaiting_product → Consignment/Direct: waiting for physical product
    *   mark_live      → Manually push to live (after fee paid or product received)
+   *   mark_received  → Direct purchase: product received by platform → sold_to_platform
    */
   async adminReview(
     listingId: string,
@@ -637,6 +638,22 @@ export class ListingsService {
         break;
       }
 
+      // ─── MARK RECEIVED (direct purchase: product received by platform) ──
+      case 'mark_received': {
+        if (listing.type !== ListingType.DirectPurchase) {
+          throw new BadRequestException(
+            'mark_received only applies to direct_purchase listings',
+          );
+        }
+        if (listing.status !== ListingStatus.AwaitingProduct) {
+          throw new BadRequestException(
+            `Cannot mark received from status "${listing.status}". Must be awaiting_product.`,
+          );
+        }
+        listing.status = ListingStatus.SoldToPlatform;
+        break;
+      }
+
       default:
         throw new BadRequestException(`Unknown action: ${action}`);
     }
@@ -766,7 +783,7 @@ export class ListingsService {
         .find(filter)
         .populate(
           'storeId',
-          'name slug logo phoneNumber whatsappNumber location',
+          'name slug logo phoneNumber whatsappNumber location isVerified isSuperVerified',
         )
         .populate(
           'creatorId',
@@ -893,7 +910,7 @@ export class ListingsService {
         .find(filter)
         .populate(
           'storeId',
-          'name slug logo phoneNumber whatsappNumber location categories',
+          'name slug logo phoneNumber whatsappNumber location categories isVerified isSuperVerified',
         )
         .populate({
           path: 'creatorId',
@@ -1008,7 +1025,7 @@ export class ListingsService {
         .find(filter)
         .populate(
           'storeId',
-          'name slug logo phoneNumber whatsappNumber location',
+          'name slug logo phoneNumber whatsappNumber location isVerified isSuperVerified',
         )
         .populate(
           'creatorId',

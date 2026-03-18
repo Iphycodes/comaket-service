@@ -171,6 +171,20 @@ export class Listing extends BaseSchema {
   })
   adminPricing?: AdminPricing;
 
+  // ─── Discount Pricing (admin listings) ───────────────────
+  // If set, askingPrice becomes the "former price" (struck through on marketplace)
+  // and discountPrice becomes the actual selling price.
+  // discountPercent is auto-calculated: ((askingPrice - discountPrice) / askingPrice) * 100
+
+  @Prop({ type: Number, default: null })
+  discountPrice?: number; // In kobo — the discounted price buyers pay
+
+  @Prop({ type: Number, default: null })
+  formerPrice?: number; // In kobo — original price before discount (copied from askingPrice)
+
+  @Prop({ type: Number, default: null })
+  discountPercent?: number; // e.g. 25 means 25% off
+
   // ─── Self-Listing Fee ────────────────────────────────────
   // Only for self_listing type — the fee the seller pays to list.
   //
@@ -285,7 +299,7 @@ export const ListingSchema = SchemaFactory.createForClass(Listing);
  * Self-listed items can only be contacted via WhatsApp.
  */
 ListingSchema.virtual('isBuyable').get(function () {
-  const buyableTypes = [ListingType.Consignment, ListingType.DirectPurchase];
+  const buyableTypes = [ListingType.Consignment, ListingType.DirectPurchase, ListingType.Admin];
   return buyableTypes.includes(this.type) && this.status === ListingStatus.Live;
 });
 
@@ -295,6 +309,13 @@ ListingSchema.virtual('isBuyable').get(function () {
  * For self-listing: askingPrice (informational only, since they can't buy)
  */
 ListingSchema.virtual('effectivePrice').get(function () {
+  // Discount price takes highest priority (admin listings with discount)
+  if (this.discountPrice) {
+    return {
+      amount: this.discountPrice,
+      currency: this.askingPrice?.currency || Currency.NGN,
+    };
+  }
   if (this.adminPricing?.sellingPrice) {
     return {
       amount: this.adminPricing.sellingPrice,

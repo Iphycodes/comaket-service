@@ -51,7 +51,7 @@ import { UpdatePlatformSettingsDto } from '../platform-settings/dto/update-setti
 import { UserRole } from '@config/contants';
 import { Roles } from '@common/decorators/roles.decorator';
 import { ResponseMessage } from '@common/decorators/response-message.decorator';
-import { AdminCreateListingDto, AdminQueryDto, UpdateCreatorStatusDto, UpdateStoreStatusDto, UpdateUserRoleDto, UpdateUserStatusDto } from './dto/admin.dto';
+import { AdminCreateListingDto, AdminUpdateListingDto, AdminQueryDto, UpdateCreatorStatusDto, UpdateStoreStatusDto, UpdateUserRoleDto, UpdateUserStatusDto } from './dto/admin.dto';
 
 @ApiTags('admin')
 @Controller('admin')
@@ -202,7 +202,7 @@ export class AdminController {
   @ResponseMessage('Store status updated')
   @ApiOperation({
     summary: 'Update store status',
-    description: 'Suspend, activate, or close a store',
+    description: 'Suspend, activate, or close a store. Cannot suspend/close the official Kraft store.',
   })
   @ApiParam({ name: 'id', description: 'Store MongoDB ID' })
   async updateStoreStatus(
@@ -210,6 +210,24 @@ export class AdminController {
     @Body() dto: UpdateStoreStatusDto,
   ) {
     return this.adminService.updateStoreStatus(storeId, dto.status);
+  }
+
+  @Patch('stores/:id/verification')
+  @ResponseMessage('Store verification updated')
+  @ApiOperation({
+    summary: 'Update store verification status',
+    description: 'Verify, super-verify, or unverify a store',
+  })
+  @ApiParam({ name: 'id', description: 'Store MongoDB ID' })
+  async updateStoreVerification(
+    @Param('id') storeId: string,
+    @Body() body: { isVerified: boolean; isSuperVerified: boolean },
+  ) {
+    return this.adminService.updateStoreVerification(
+      storeId,
+      body.isVerified ?? false,
+      body.isSuperVerified ?? false,
+    );
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -231,6 +249,62 @@ export class AdminController {
   ) {
     const adminUserId = req.user.sub || req.user._id;
     return this.adminService.adminCreateListing(dto, adminUserId);
+  }
+
+  @Patch('listings/:id')
+  @ResponseMessage('Listing updated')
+  @ApiOperation({ summary: 'Update an admin listing' })
+  @ApiResponse({ status: 200, description: 'Listing updated' })
+  async adminUpdateListing(
+    @Param('id') listingId: string,
+    @Body() dto: AdminUpdateListingDto,
+  ) {
+    return this.adminService.adminUpdateListing(listingId, dto);
+  }
+
+  @Get('listings/:id')
+  @ResponseMessage('Listing fetched')
+  @ApiOperation({ summary: 'Get a single listing by ID' })
+  async adminGetListing(@Param('id') listingId: string) {
+    return this.adminService.adminGetListing(listingId);
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // OFFICIAL STORE
+  // ═══════════════════════════════════════════════════════════
+
+  @Get('official-store')
+  @ResponseMessage('Official store details')
+  @ApiOperation({ summary: 'Get official Kraft store details' })
+  async getOfficialStore() {
+    return this.adminService.getOfficialStore();
+  }
+
+  @Patch('official-store')
+  @ResponseMessage('Official store updated')
+  @ApiOperation({ summary: 'Update official Kraft store details' })
+  async updateOfficialStore(@Body() body: Record<string, any>) {
+    return this.adminService.updateOfficialStore(body);
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // ADMIN PROFILE
+  // ═══════════════════════════════════════════════════════════
+
+  @Get('profile')
+  @ResponseMessage('Admin profile')
+  @ApiOperation({ summary: 'Get current admin profile' })
+  async getAdminProfile(@Req() req: any) {
+    const userId = req.user.sub || req.user._id;
+    return this.adminService.getAdminProfile(userId);
+  }
+
+  @Patch('profile')
+  @ResponseMessage('Admin profile updated')
+  @ApiOperation({ summary: 'Update current admin profile' })
+  async updateAdminProfile(@Req() req: any, @Body() body: Record<string, any>) {
+    const userId = req.user.sub || req.user._id;
+    return this.adminService.updateAdminProfile(userId, body);
   }
 
   // ═══════════════════════════════════════════════════════════

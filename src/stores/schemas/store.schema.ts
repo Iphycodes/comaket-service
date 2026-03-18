@@ -223,6 +223,14 @@ export class Store extends BaseSchema {
   @Prop({ type: Boolean, default: true })
   isVisible: boolean; // Owner can toggle visibility on/off
 
+  // ─── Verification ───────────────────────────────────────
+
+  @Prop({ type: Boolean, default: false })
+  isVerified: boolean;
+
+  @Prop({ type: Boolean, default: false })
+  isSuperVerified: boolean;
+
   // ─── Stats (denormalized) ────────────────────────────────
 
   @Prop({ type: Number, default: 0 })

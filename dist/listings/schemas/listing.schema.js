@@ -111,6 +111,18 @@ __decorate([
 __decorate([
     (0, mongoose_1.Prop)({ type: Number, default: null }),
     __metadata("design:type", Number)
+], Listing.prototype, "discountPrice", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: Number, default: null }),
+    __metadata("design:type", Number)
+], Listing.prototype, "formerPrice", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: Number, default: null }),
+    __metadata("design:type", Number)
+], Listing.prototype, "discountPercent", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: Number, default: null }),
+    __metadata("design:type", Number)
 ], Listing.prototype, "listingFee", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ type: Number, default: 0 }),
@@ -200,10 +212,16 @@ exports.Listing = Listing = __decorate([
 ], Listing);
 exports.ListingSchema = mongoose_1.SchemaFactory.createForClass(Listing);
 exports.ListingSchema.virtual('isBuyable').get(function () {
-    const buyableTypes = [contants_1.ListingType.Consignment, contants_1.ListingType.DirectPurchase];
+    const buyableTypes = [contants_1.ListingType.Consignment, contants_1.ListingType.DirectPurchase, contants_1.ListingType.Admin];
     return buyableTypes.includes(this.type) && this.status === contants_1.ListingStatus.Live;
 });
 exports.ListingSchema.virtual('effectivePrice').get(function () {
+    if (this.discountPrice) {
+        return {
+            amount: this.discountPrice,
+            currency: this.askingPrice?.currency || contants_1.Currency.NGN,
+        };
+    }
     if (this.adminPricing?.sellingPrice) {
         return {
             amount: this.adminPricing.sellingPrice,
