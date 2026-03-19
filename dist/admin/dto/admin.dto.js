@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.AdminCreateListingDto = exports.AdminQueryDto = exports.UpdateUserStatusDto = exports.UpdateStoreStatusDto = exports.UpdateCreatorStatusDto = exports.UpdateUserRoleDto = void 0;
+exports.AdminUpdateListingDto = exports.AdminCreateListingDto = exports.AdminQueryDto = exports.UpdateUserStatusDto = exports.UpdateStoreStatusDto = exports.UpdateCreatorStatusDto = exports.UpdateUserRoleDto = void 0;
 const contants_1 = require("../../config/contants");
 const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
@@ -249,4 +249,26 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", Number)
 ], AdminCreateListingDto.prototype, "commissionRate", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        example: '+2348012345678',
+        description: 'WhatsApp number for self-listing contact',
+    }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], AdminCreateListingDto.prototype, "whatsappNumber", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        example: 1500000,
+        description: 'Discounted price in kobo. If set, askingPrice becomes the former price (struck through)',
+    }),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Number)
+], AdminCreateListingDto.prototype, "discountPrice", void 0);
+class AdminUpdateListingDto extends (0, swagger_1.PartialType)(AdminCreateListingDto) {
+}
+exports.AdminUpdateListingDto = AdminUpdateListingDto;
 //# sourceMappingURL=admin.dto.js.map

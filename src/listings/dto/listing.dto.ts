@@ -208,6 +208,7 @@ export class AdminReviewListingDto {
       'mark_awaiting_fee',
       'mark_awaiting_product',
       'mark_live',
+      'mark_received',
     ],
     description: 'Admin action on the listing',
   })

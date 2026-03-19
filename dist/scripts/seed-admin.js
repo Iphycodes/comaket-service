@@ -5,7 +5,7 @@ const bcrypt = require("bcrypt");
 const dotenv = require("dotenv");
 dotenv.config();
 const ADMIN_EMAIL = 'admin@comaket.com';
-const ADMIN_PASSWORD = 'Admin@123456';
+const ADMIN_PASSWORD = 'Test@1234';
 const ADMIN_FIRST_NAME = 'Comaket';
 const ADMIN_LAST_NAME = 'Admin';
 async function seedAdmin() {
@@ -21,8 +21,11 @@ async function seedAdmin() {
         const usersCollection = db.collection('users');
         const existing = await usersCollection.findOne({ email: ADMIN_EMAIL });
         if (existing) {
-            console.log(`⚠️  Admin user already exists: ${ADMIN_EMAIL}`);
-            console.log(`   Role: ${existing.role}`);
+            const hashedPw = await bcrypt.hash(ADMIN_PASSWORD, 10);
+            await usersCollection.updateOne({ email: ADMIN_EMAIL }, { $set: { password: hashedPw, role: 'super_admin', isEmailVerified: true, updatedAt: new Date() } });
+            console.log(`✅ Admin user updated: ${ADMIN_EMAIL}`);
+            console.log(`   Password: reset to ${ADMIN_PASSWORD}`);
+            console.log(`   Role: super_admin`);
             await mongoose.disconnect();
             return;
         }

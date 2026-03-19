@@ -1,7 +1,7 @@
 import { AdminService } from './admin.service';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import { UpdatePlatformSettingsDto } from '../platform-settings/dto/update-settings.dto';
-import { AdminCreateListingDto, AdminQueryDto, UpdateCreatorStatusDto, UpdateStoreStatusDto, UpdateUserRoleDto, UpdateUserStatusDto } from './dto/admin.dto';
+import { AdminCreateListingDto, AdminUpdateListingDto, AdminQueryDto, UpdateCreatorStatusDto, UpdateStoreStatusDto, UpdateUserRoleDto, UpdateUserStatusDto } from './dto/admin.dto';
 export declare class AdminController {
     private readonly adminService;
     private readonly platformSettingsService;
@@ -107,7 +107,31 @@ export declare class AdminController {
     updateStoreStatus(storeId: string, dto: UpdateStoreStatusDto): Promise<import("mongoose").Document<unknown, {}, import("../stores/schemas/store.schema").StoreDocument> & import("../stores/schemas/store.schema").Store & import("mongoose").Document<any, any, any> & {
         _id: import("mongoose").Types.ObjectId;
     }>;
+    updateStoreVerification(storeId: string, body: {
+        isVerified: boolean;
+        isSuperVerified: boolean;
+    }): Promise<import("mongoose").Document<unknown, {}, import("../stores/schemas/store.schema").StoreDocument> & import("../stores/schemas/store.schema").Store & import("mongoose").Document<any, any, any> & {
+        _id: import("mongoose").Types.ObjectId;
+    }>;
     adminCreateListing(dto: AdminCreateListingDto, req: any): Promise<import("../listings/schemas/listing.schema").ListingDocument>;
+    adminUpdateListing(listingId: string, dto: AdminUpdateListingDto): Promise<import("mongoose").Document<unknown, {}, import("../listings/schemas/listing.schema").ListingDocument> & import("../listings/schemas/listing.schema").Listing & import("mongoose").Document<any, any, any> & {
+        _id: import("mongoose").Types.ObjectId;
+    }>;
+    adminGetListing(listingId: string): Promise<import("mongoose").Document<unknown, {}, import("../listings/schemas/listing.schema").ListingDocument> & import("../listings/schemas/listing.schema").Listing & import("mongoose").Document<any, any, any> & {
+        _id: import("mongoose").Types.ObjectId;
+    }>;
+    getOfficialStore(): Promise<import("mongoose").Document<unknown, {}, import("../stores/schemas/store.schema").StoreDocument> & import("../stores/schemas/store.schema").Store & import("mongoose").Document<any, any, any> & {
+        _id: import("mongoose").Types.ObjectId;
+    }>;
+    updateOfficialStore(body: Record<string, any>): Promise<import("mongoose").Document<unknown, {}, import("../stores/schemas/store.schema").StoreDocument> & import("../stores/schemas/store.schema").Store & import("mongoose").Document<any, any, any> & {
+        _id: import("mongoose").Types.ObjectId;
+    }>;
+    getAdminProfile(req: any): Promise<import("mongoose").Document<unknown, {}, import("../users/schemas/user.schema").UserDocument> & import("../users/schemas/user.schema").User & import("mongoose").Document<any, any, any> & {
+        _id: import("mongoose").Types.ObjectId;
+    }>;
+    updateAdminProfile(req: any, body: Record<string, any>): Promise<import("mongoose").Document<unknown, {}, import("../users/schemas/user.schema").UserDocument> & import("../users/schemas/user.schema").User & import("mongoose").Document<any, any, any> & {
+        _id: import("mongoose").Types.ObjectId;
+    }>;
     listReviews(query: any): Promise<import("../common/interfaces/paginated-response.interface").PaginatedResponse<import("../reviews/schemas/review.schema").ReviewDocument>>;
     deleteReview(reviewId: string): Promise<{
         deleted: boolean;

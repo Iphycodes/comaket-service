@@ -47,5 +47,10 @@ export declare class AdminCreateListingDto {
     location?: AdminListingLocationDto;
     sellingPrice?: number;
     commissionRate?: number;
+    whatsappNumber?: string;
+    discountPrice?: number;
+}
+declare const AdminUpdateListingDto_base: import("@nestjs/common").Type<Partial<AdminCreateListingDto>>;
+export declare class AdminUpdateListingDto extends AdminUpdateListingDto_base {
 }
 export {};

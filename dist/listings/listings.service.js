@@ -115,7 +115,7 @@ let ListingsService = class ListingsService {
             .findById(listingId)
             .populate({
             path: 'storeId',
-            select: 'name slug logo description phoneNumber whatsappNumber address category tags status',
+            select: 'name slug logo description phoneNumber whatsappNumber address category tags status isVerified isSuperVerified',
         })
             .populate({
             path: 'creatorId',
@@ -350,6 +350,16 @@ let ListingsService = class ListingsService {
                 listing.status = contants_1.ListingStatus.Live;
                 break;
             }
+            case 'mark_received': {
+                if (listing.type !== contants_1.ListingType.DirectPurchase) {
+                    throw new common_1.BadRequestException('mark_received only applies to direct_purchase listings');
+                }
+                if (listing.status !== contants_1.ListingStatus.AwaitingProduct) {
+                    throw new common_1.BadRequestException(`Cannot mark received from status "${listing.status}". Must be awaiting_product.`);
+                }
+                listing.status = contants_1.ListingStatus.SoldToPlatform;
+                break;
+            }
             default:
                 throw new common_1.BadRequestException(`Unknown action: ${action}`);
         }
@@ -428,7 +438,7 @@ let ListingsService = class ListingsService {
         const [items, total] = await Promise.all([
             this.listingModel
                 .find(filter)
-                .populate('storeId', 'name slug logo phoneNumber whatsappNumber location')
+                .populate('storeId', 'name slug logo phoneNumber whatsappNumber location isVerified isSuperVerified')
                 .populate('creatorId', 'username slug profileImageUrl isVerified phoneNumber whatsappNumber website location totalFollowers')
                 .sort(sortObj)
                 .skip(skip)
@@ -506,7 +516,7 @@ let ListingsService = class ListingsService {
         const [items, total] = await Promise.all([
             this.listingModel
                 .find(filter)
-                .populate('storeId', 'name slug logo phoneNumber whatsappNumber location categories')
+                .populate('storeId', 'name slug logo phoneNumber whatsappNumber location categories isVerified isSuperVerified')
                 .populate({
                 path: 'creatorId',
                 select: 'username slug profileImageUrl isVerified phoneNumber whatsappNumber website location totalFollowers',
@@ -576,7 +586,7 @@ let ListingsService = class ListingsService {
         const [items, total] = await Promise.all([
             this.listingModel
                 .find(filter)
-                .populate('storeId', 'name slug logo phoneNumber whatsappNumber location')
+                .populate('storeId', 'name slug logo phoneNumber whatsappNumber location isVerified isSuperVerified')
                 .populate('creatorId', 'username slug profileImageUrl isVerified phoneNumber whatsappNumber website location totalFollowers')
                 .sort(sortObj)
                 .skip(skip)

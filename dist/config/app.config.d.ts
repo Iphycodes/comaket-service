@@ -33,6 +33,7 @@ declare const _default: (() => {
         apiKey: string;
         apiSecret: string;
     };
+    resendApiKey: string;
     mail: {
         host: string;
         port: number;
@@ -89,6 +90,7 @@ declare const _default: (() => {
         apiKey: string;
         apiSecret: string;
     };
+    resendApiKey: string;
     mail: {
         host: string;
         port: number;

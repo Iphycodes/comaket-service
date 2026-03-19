@@ -2,10 +2,12 @@ import { ConfigService } from '@nestjs/config';
 export declare class NotificationsService {
     private configService;
     private readonly logger;
+    private resend;
     private transporter;
     private readonly fromAddress;
     private readonly adminEmail;
     private readonly isConfigured;
+    private readonly provider;
     private readonly brand;
     constructor(configService: ConfigService);
     private send;

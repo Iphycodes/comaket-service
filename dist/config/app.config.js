@@ -39,6 +39,7 @@ exports.default = (0, config_1.registerAs)('app', () => ({
         apiKey: process.env.CLOUDINARY_API_KEY,
         apiSecret: process.env.CLOUDINARY_API_SECRET,
     },
+    resendApiKey: process.env.RESEND_API_KEY || null,
     mail: {
         host: process.env.MAIL_HOST,
         port: parseInt(process.env.MAIL_PORT, 10) || 587,

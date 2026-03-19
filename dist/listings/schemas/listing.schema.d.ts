@@ -37,6 +37,9 @@ export declare class Listing extends BaseSchema {
     type: ListingType;
     askingPrice: PriceInfo;
     adminPricing?: AdminPricing;
+    discountPrice?: number;
+    formerPrice?: number;
+    discountPercent?: number;
     listingFee?: number;
     feePaidAmount: number;
     listingFeeStatus?: string;
