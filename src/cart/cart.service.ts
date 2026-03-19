@@ -62,7 +62,7 @@ export class CartService {
     if (!listing) {
       throw new NotFoundException('Listing not found');
     }
-    const buyableTypes = ['consignment', 'direct_purchase'];
+    const buyableTypes = ['consignment', 'direct_purchase', 'admin'];
     if (!buyableTypes.includes(listing.type)) {
       throw new BadRequestException(
         'This listing is not available for direct purchase. Contact the seller via WhatsApp.',
@@ -287,7 +287,7 @@ export class CartService {
         continue;
       }
 
-      const buyableTypes = ['consignment', 'direct_purchase'];
+      const buyableTypes = ['consignment', 'direct_purchase', 'admin'];
       const isBuyable =
         buyableTypes.includes(listing.type) && listing.status === 'live';
 
@@ -406,7 +406,7 @@ export class CartService {
         continue;
       }
 
-      const buyableTypes = ['consignment', 'direct_purchase'];
+      const buyableTypes = ['consignment', 'direct_purchase', 'admin'];
       if (!buyableTypes.includes(listing.type) || listing.status !== 'live') {
         skippedItems.push({
           listingId: item.listingId,
@@ -682,7 +682,7 @@ export class CartService {
         item.listingId && item.listingId._id ? item.listingId : null;
 
       // Determine availability from live data
-      const buyableTypes = ['consignment', 'direct_purchase'];
+      const buyableTypes = ['consignment', 'direct_purchase', 'admin'];
       const isAvailable = listing
         ? buyableTypes.includes(listing.type) && listing.status === 'live'
         : false;

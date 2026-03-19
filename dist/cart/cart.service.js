@@ -36,7 +36,7 @@ let CartService = CartService_1 = class CartService {
         if (!listing) {
             throw new common_1.NotFoundException('Listing not found');
         }
-        const buyableTypes = ['consignment', 'direct_purchase'];
+        const buyableTypes = ['consignment', 'direct_purchase', 'admin'];
         if (!buyableTypes.includes(listing.type)) {
             throw new common_1.BadRequestException('This listing is not available for direct purchase. Contact the seller via WhatsApp.');
         }
@@ -165,7 +165,7 @@ let CartService = CartService_1 = class CartService {
                 });
                 continue;
             }
-            const buyableTypes = ['consignment', 'direct_purchase'];
+            const buyableTypes = ['consignment', 'direct_purchase', 'admin'];
             const isBuyable = buyableTypes.includes(listing.type) && listing.status === 'live';
             if (!isBuyable) {
                 issues.push({
@@ -230,7 +230,7 @@ let CartService = CartService_1 = class CartService {
                 });
                 continue;
             }
-            const buyableTypes = ['consignment', 'direct_purchase'];
+            const buyableTypes = ['consignment', 'direct_purchase', 'admin'];
             if (!buyableTypes.includes(listing.type) || listing.status !== 'live') {
                 skippedItems.push({
                     listingId: item.listingId,
@@ -386,7 +386,7 @@ let CartService = CartService_1 = class CartService {
     formatCart(cart) {
         const items = (cart.items || []).map((item) => {
             const listing = item.listingId && item.listingId._id ? item.listingId : null;
-            const buyableTypes = ['consignment', 'direct_purchase'];
+            const buyableTypes = ['consignment', 'direct_purchase', 'admin'];
             const isAvailable = listing
                 ? buyableTypes.includes(listing.type) && listing.status === 'live'
                 : false;

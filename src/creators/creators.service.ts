@@ -207,9 +207,10 @@ export class CreatorsService {
     // Escape special regex characters to prevent injection
     const escaped = slug.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-    // Exact match on slug or username (case-insensitive)
+    // Exact match on slug or username (case-insensitive), exclude system accounts
     const creator = await this.creatorModel
       .findOne({
+        isSystemAccount: { $ne: true },
         $or: [
           { slug: slug.toLowerCase(), status: CreatorStatus.Active },
           {
@@ -349,6 +350,9 @@ export class CreatorsService {
     } = queryDto;
 
     const filter: Record<string, any> = {};
+
+    // Hide system/admin accounts from public listings
+    filter.isSystemAccount = { $ne: true };
 
     // Default: only show active creators
     filter.status = status || CreatorStatus.Active;

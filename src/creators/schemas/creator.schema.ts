@@ -183,6 +183,9 @@ export class Creator extends BaseSchema {
   @Prop({ default: false })
   isVerified: boolean; // Verified badge — manually set by admin
 
+  @Prop({ default: false })
+  isSystemAccount: boolean; // True for admin/platform accounts — hidden from public
+
   // ─── Bank Details (for payouts) ──────────────────────────
 
   @Prop({

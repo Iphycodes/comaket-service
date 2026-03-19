@@ -126,6 +126,7 @@ let AdminService = class AdminService {
     }
     async listCreators(page = 1, perPage = 20, status, search, plan) {
         const filter = {};
+        filter.isSystemAccount = { $ne: true };
         if (status)
             filter.status = status;
         if (plan)
@@ -599,6 +600,11 @@ let AdminService = class AdminService {
             .exec();
         if (!store) {
             throw new common_1.NotFoundException('Official store not found. Run seed script.');
+        }
+        if (store.creatorId) {
+            await this.creatorModel
+                .updateOne({ _id: store.creatorId, isSystemAccount: { $ne: true } }, { $set: { isSystemAccount: true } })
+                .exec();
         }
         return store;
     }
