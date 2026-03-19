@@ -84,7 +84,7 @@ let StoresService = class StoresService {
             .findById(storeId)
             .populate({
             path: 'creatorId',
-            select: 'businessName slug logo isVerified',
+            select: 'businessName slug logo isVerified isSystemAccount',
         })
             .populate('userId', 'firstName lastName avatar')
             .exec();
@@ -98,7 +98,7 @@ let StoresService = class StoresService {
             .findOne({ slug, status: contants_1.StoreStatus.Active })
             .populate({
             path: 'creatorId',
-            select: 'businessName slug logo isVerified whatsappNumber',
+            select: 'businessName slug logo isVerified isSystemAccount whatsappNumber',
         })
             .populate('userId', 'firstName lastName avatar')
             .exec();
@@ -227,7 +227,7 @@ let StoresService = class StoresService {
                 .find(filter)
                 .populate({
                 path: 'creatorId',
-                select: 'username businessName slug logo isVerified',
+                select: 'username businessName slug logo isVerified isSystemAccount',
             })
                 .sort(sortObj)
                 .skip(skip)

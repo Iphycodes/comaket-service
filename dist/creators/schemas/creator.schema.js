@@ -158,6 +158,10 @@ __decorate([
     __metadata("design:type", Boolean)
 ], Creator.prototype, "isVerified", void 0);
 __decorate([
+    (0, mongoose_1.Prop)({ default: false }),
+    __metadata("design:type", Boolean)
+], Creator.prototype, "isSystemAccount", void 0);
+__decorate([
     (0, mongoose_1.Prop)({
         type: {
             bankName: String,

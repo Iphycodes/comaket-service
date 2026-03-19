@@ -47,6 +47,7 @@ export declare class Creator extends BaseSchema {
     planPaymentChannel?: string;
     status: CreatorStatus;
     isVerified: boolean;
+    isSystemAccount: boolean;
     bankDetails?: BankDetails;
     totalStores: number;
     totalListings: number;

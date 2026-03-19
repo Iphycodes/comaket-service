@@ -111,6 +111,7 @@ let CreatorsService = class CreatorsService {
         const escaped = slug.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const creator = await this.creatorModel
             .findOne({
+            isSystemAccount: { $ne: true },
             $or: [
                 { slug: slug.toLowerCase(), status: contants_1.CreatorStatus.Active },
                 {
@@ -178,6 +179,7 @@ let CreatorsService = class CreatorsService {
     async findAll(queryDto) {
         const { page, perPage, sort, search, status, plan, industry, state, city, isVerified, } = queryDto;
         const filter = {};
+        filter.isSystemAccount = { $ne: true };
         filter.status = status || contants_1.CreatorStatus.Active;
         if (plan)
             filter.plan = plan;

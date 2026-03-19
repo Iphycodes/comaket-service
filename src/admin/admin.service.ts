@@ -211,6 +211,9 @@ export class AdminService {
   ): Promise<PaginatedResponse<CreatorDocument>> {
     const filter: Record<string, any> = {};
 
+    // Hide system/admin accounts from admin creator list
+    filter.isSystemAccount = { $ne: true };
+
     if (status) filter.status = status;
     if (plan) filter.plan = plan;
     if (search) {
@@ -898,6 +901,17 @@ export class AdminService {
     if (!store) {
       throw new NotFoundException('Official store not found. Run seed script.');
     }
+
+    // Auto-patch: ensure the linked creator is marked as a system account
+    if (store.creatorId) {
+      await this.creatorModel
+        .updateOne(
+          { _id: store.creatorId, isSystemAccount: { $ne: true } },
+          { $set: { isSystemAccount: true } },
+        )
+        .exec();
+    }
+
     return store;
   }
 

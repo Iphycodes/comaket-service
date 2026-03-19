@@ -42,6 +42,7 @@ async function seed() {
       plan: 'business',
       status: 'active',
       isVerified: true,
+      isSystemAccount: true,
       totalStores: 1,
       totalListings: 0,
       totalSales: 0,

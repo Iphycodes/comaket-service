@@ -739,10 +739,10 @@ export class ListingsService {
     }
     if (storeId) filter.storeId = new Types.ObjectId(storeId);
 
-    // buyableOnly: consignment + direct_purchase only
+    // buyableOnly: consignment + direct_purchase + admin only
     if (buyableOnly) {
       filter.type = {
-        $in: [ListingType.Consignment, ListingType.DirectPurchase],
+        $in: [ListingType.Consignment, ListingType.DirectPurchase, ListingType.Admin],
       };
     }
 
@@ -866,10 +866,10 @@ export class ListingsService {
     if (storeId) filter.storeId = new Types.ObjectId(storeId);
     if (creatorId) filter.creatorId = new Types.ObjectId(creatorId);
 
-    // buyableOnly: consignment + direct_purchase only
+    // buyableOnly: consignment + direct_purchase + admin only
     if (buyableOnly) {
       filter.type = {
-        $in: [ListingType.Consignment, ListingType.DirectPurchase],
+        $in: [ListingType.Consignment, ListingType.DirectPurchase, ListingType.Admin],
       };
     }
 

@@ -406,7 +406,7 @@ let ListingsService = class ListingsService {
             filter.storeId = new mongoose_2.Types.ObjectId(storeId);
         if (buyableOnly) {
             filter.type = {
-                $in: [contants_1.ListingType.Consignment, contants_1.ListingType.DirectPurchase],
+                $in: [contants_1.ListingType.Consignment, contants_1.ListingType.DirectPurchase, contants_1.ListingType.Admin],
             };
         }
         if (minPrice !== undefined || maxPrice !== undefined) {
@@ -484,7 +484,7 @@ let ListingsService = class ListingsService {
             filter.creatorId = new mongoose_2.Types.ObjectId(creatorId);
         if (buyableOnly) {
             filter.type = {
-                $in: [contants_1.ListingType.Consignment, contants_1.ListingType.DirectPurchase],
+                $in: [contants_1.ListingType.Consignment, contants_1.ListingType.DirectPurchase, contants_1.ListingType.Admin],
             };
         }
         if (minPrice !== undefined || maxPrice !== undefined) {
