@@ -4,11 +4,13 @@ import { CreatorDocument } from '../creators/schemas/creator.schema';
 import { StoreDocument } from '../stores/schemas/store.schema';
 import { ToggleFollowDto, CheckFollowDto, QueryFollowsDto } from './dto/follows.dto';
 import { PaginatedResponse } from '@common/interfaces/paginated-response.interface';
+import { AlertsService } from '../alerts/alerts.service';
 export declare class FollowsService {
     private followModel;
     private creatorModel;
     private storeModel;
-    constructor(followModel: Model<FollowDocument>, creatorModel: Model<CreatorDocument>, storeModel: Model<StoreDocument>);
+    private alertsService;
+    constructor(followModel: Model<FollowDocument>, creatorModel: Model<CreatorDocument>, storeModel: Model<StoreDocument>, alertsService: AlertsService);
     toggle(userId: string, dto: ToggleFollowDto): Promise<{
         followed: boolean;
         totalFollowers: number;

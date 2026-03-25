@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PLAN_LIMITS = exports.PLAN_PRICING = exports.DEFAULT_COMMISSION_RATES = exports.NotificationType = exports.Currency = exports.PaymentType = exports.DisbursementStatus = exports.PaymentStatus = exports.OrderStatus = exports.ItemCondition = exports.PendingApproval = exports.ListingStatus = exports.ListingType = exports.StoreStatus = exports.CreatorStatus = exports.CreatorPlan = exports.AuthProvider = exports.UserRole = void 0;
+exports.PLAN_LIMITS = exports.PLAN_PRICING = exports.DEFAULT_COMMISSION_RATES = exports.AlertType = exports.NotificationType = exports.Currency = exports.PaymentType = exports.DisbursementStatus = exports.PaymentStatus = exports.OrderStatus = exports.ItemCondition = exports.PendingApproval = exports.ListingStatus = exports.ListingType = exports.StoreStatus = exports.CreatorStatus = exports.CreatorPlan = exports.AuthProvider = exports.UserRole = void 0;
 var UserRole;
 (function (UserRole) {
     UserRole["User"] = "user";
@@ -111,6 +111,35 @@ var NotificationType;
     NotificationType["NewReview"] = "new_review";
     NotificationType["SystemAlert"] = "system_alert";
 })(NotificationType || (exports.NotificationType = NotificationType = {}));
+var AlertType;
+(function (AlertType) {
+    AlertType["Welcome"] = "welcome";
+    AlertType["ProfileUpdated"] = "profile_updated";
+    AlertType["OrderPlaced"] = "order_placed";
+    AlertType["OrderConfirmed"] = "order_confirmed";
+    AlertType["OrderProcessing"] = "order_processing";
+    AlertType["OrderShipped"] = "order_shipped";
+    AlertType["OrderDelivered"] = "order_delivered";
+    AlertType["OrderCompleted"] = "order_completed";
+    AlertType["OrderCancelled"] = "order_cancelled";
+    AlertType["OrderRefunded"] = "order_refunded";
+    AlertType["NewOrderReceived"] = "new_order_received";
+    AlertType["ListingSubmitted"] = "listing_submitted";
+    AlertType["ListingApproved"] = "listing_approved";
+    AlertType["ListingRejected"] = "listing_rejected";
+    AlertType["ListingLive"] = "listing_live";
+    AlertType["ListingSold"] = "listing_sold";
+    AlertType["ListingSoldToPlatform"] = "listing_sold_to_platform";
+    AlertType["PaymentSuccessful"] = "payment_successful";
+    AlertType["PaymentFailed"] = "payment_failed";
+    AlertType["StoreCreated"] = "store_created";
+    AlertType["StoreVerified"] = "store_verified";
+    AlertType["NewFollower"] = "new_follower";
+    AlertType["NewReview"] = "new_review";
+    AlertType["DisputeSubmitted"] = "dispute_submitted";
+    AlertType["DisputeResolved"] = "dispute_resolved";
+    AlertType["SystemAnnouncement"] = "system_announcement";
+})(AlertType || (exports.AlertType = AlertType = {}));
 exports.DEFAULT_COMMISSION_RATES = {
     [ListingType.SelfListing]: 5,
     [ListingType.Consignment]: 15,

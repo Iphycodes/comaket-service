@@ -98,6 +98,14 @@ export class PlatformSettings {
   @Prop({ type: Number, default: 10 })
   maxListingImages: number;
 
+  /** Max file upload size in bytes (default 15MB = 15728640) */
+  @Prop({ type: Number, default: 15 * 1024 * 1024 })
+  maxFileSizeBytes: number;
+
+  /** Max number of files per listing upload (default 10) */
+  @Prop({ type: Number, default: 10 })
+  maxFilesPerUpload: number;
+
   /** Max hours a buyer has to return before the order auto-completes (default 72h) */
   @Prop({ default: 72 })
   maxReturnHoursBeforeAutoComplete: number;

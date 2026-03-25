@@ -6,13 +6,15 @@ import { PlatformSettingsService } from '../platform-settings/platform-settings.
 import { CreateListingDto, UpdateListingDto, AdminReviewListingDto, QueryListingsDto } from './dto/listing.dto';
 import { PaginatedResponse } from '@common/interfaces/paginated-response.interface';
 import { NotificationsService } from '../notifications/notifications.service';
+import { AlertsService } from '../alerts/alerts.service';
 export declare class ListingsService {
     private listingModel;
     private storesService;
     private creatorsService;
     private notificationsService;
     private platformSettingsService;
-    constructor(listingModel: Model<ListingDocument>, storesService: StoresService, creatorsService: CreatorsService, notificationsService: NotificationsService, platformSettingsService: PlatformSettingsService);
+    private alertsService;
+    constructor(listingModel: Model<ListingDocument>, storesService: StoresService, creatorsService: CreatorsService, notificationsService: NotificationsService, platformSettingsService: PlatformSettingsService, alertsService: AlertsService);
     private isFreeListing;
     private isNoCommission;
     private calculateListingFee;

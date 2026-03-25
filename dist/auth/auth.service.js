@@ -18,12 +18,15 @@ const crypto_1 = require("crypto");
 const users_service_1 = require("../users/users.service");
 const contants_1 = require("../config/contants");
 const notifications_service_1 = require("../notifications/notifications.service");
+const alerts_service_1 = require("../alerts/alerts.service");
+const contants_2 = require("../config/contants");
 let AuthService = class AuthService {
-    constructor(usersService, jwtService, configService, notificationsService) {
+    constructor(usersService, jwtService, configService, notificationsService, alertsService) {
         this.usersService = usersService;
         this.jwtService = jwtService;
         this.configService = configService;
         this.notificationsService = notificationsService;
+        this.alertsService = alertsService;
         this.tokenBlacklist = new Set();
     }
     generateOTP() {
@@ -154,6 +157,14 @@ let AuthService = class AuthService {
             verificationExpires: null,
         });
         this.notificationsService.sendWelcome(user.email, user.firstName);
+        this.alertsService.createAlert({
+            userId: user._id,
+            type: contants_2.AlertType.Welcome,
+            title: 'Welcome to Kraft! 🎉',
+            message: `Hi ${user.firstName}, welcome to Kraft! Explore the marketplace, discover amazing Nigerian brands, and start shopping or selling today.`,
+            entityType: 'user',
+            entityId: user._id,
+        }).catch(() => { });
         return { message: 'Email verified successfully' };
     }
     async resendVerification(email) {
@@ -219,6 +230,7 @@ exports.AuthService = AuthService = __decorate([
     __metadata("design:paramtypes", [users_service_1.UsersService,
         jwt_1.JwtService,
         config_1.ConfigService,
-        notifications_service_1.NotificationsService])
+        notifications_service_1.NotificationsService,
+        alerts_service_1.AlertsService])
 ], AuthService);
 //# sourceMappingURL=auth.service.js.map

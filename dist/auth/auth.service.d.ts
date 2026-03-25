@@ -3,12 +3,14 @@ import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
 import { RegisterDto, LoginDto, VerifyEmailDto, ForgotPasswordDto, ResetPasswordDto } from './dto/auth.dto';
 import { NotificationsService } from '../notifications/notifications.service';
+import { AlertsService } from '../alerts/alerts.service';
 export declare class AuthService {
     private usersService;
     private jwtService;
     private configService;
     private notificationsService;
-    constructor(usersService: UsersService, jwtService: JwtService, configService: ConfigService, notificationsService: NotificationsService);
+    private alertsService;
+    constructor(usersService: UsersService, jwtService: JwtService, configService: ConfigService, notificationsService: NotificationsService, alertsService: AlertsService);
     private generateOTP;
     private generateToken;
     private buildAuthResponse;

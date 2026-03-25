@@ -36,10 +36,9 @@ export default registerAs('app', () => ({
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackUrl: process.env.GOOGLE_CALLBACK_URL,
   },
 
-  // Paystack — Payment gateway (replaces Giro from your Redymit app)
+  // Paystack — Payment gateway
   paystack: {
     secretKey: process.env.PAYSTACK_SECRET_KEY,
     publicKey: process.env.PAYSTACK_PUBLIC_KEY,
@@ -47,7 +46,6 @@ export default registerAs('app', () => ({
     callbackUrl:
       process.env.PAYSTACK_CALLBACK_URL ||
       'http://localhost:3000/payment/callback',
-    webhookSecret: process.env.PAYSTACK_WEBHOOK_SECRET,
   },
 
   // OPay — Payment gateway (alternative to Paystack)
@@ -98,10 +96,8 @@ export default registerAs('app', () => ({
       parseInt(process.env.CONSIGNMENT_COMMISSION_CAP_KOBO, 10) || 2000000,
   },
 
-  // Media uploads
+  // Media uploads (maxFileSize and maxFiles now come from platform settings)
   upload: {
-    maxFileSize: parseInt(process.env.MAX_FILE_SIZE, 10) || 5 * 1024 * 1024, // 5MB
-    maxFiles: parseInt(process.env.MAX_FILES, 10) || 10,
     allowedMimeTypes: [
       'image/jpeg',
       'image/png',
