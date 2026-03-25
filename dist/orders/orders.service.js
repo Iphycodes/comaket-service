@@ -22,13 +22,16 @@ const creators_service_1 = require("../creators/creators.service");
 const contants_1 = require("../config/contants");
 const notifications_service_1 = require("../notifications/notifications.service");
 const listings_service_1 = require("../listings/listings.service");
+const alerts_service_1 = require("../alerts/alerts.service");
+const contants_2 = require("../config/contants");
 let OrdersService = class OrdersService {
-    constructor(orderModel, listingsService, storesService, creatorsService, notificationsService) {
+    constructor(orderModel, listingsService, storesService, creatorsService, notificationsService, alertsService) {
         this.orderModel = orderModel;
         this.listingsService = listingsService;
         this.storesService = storesService;
         this.creatorsService = creatorsService;
         this.notificationsService = notificationsService;
+        this.alertsService = alertsService;
     }
     generateOrderNumber() {
         const date = new Date();
@@ -294,6 +297,34 @@ let OrdersService = class OrdersService {
                 }
             }
         }
+        const itemsSummary = order.items.length === 1
+            ? order.items[0].itemName
+            : `${order.items.length} items`;
+        this.alertsService.createAlert({
+            userId: order.buyerId.toString(),
+            type: contants_2.AlertType.OrderConfirmed,
+            title: 'Order Confirmed! ✅',
+            message: `Your order #${order.orderNumber} for ${itemsSummary} has been confirmed. We'll notify you when it's being processed.`,
+            entityId: order._id,
+            entityType: 'order',
+            metadata: { orderNumber: order.orderNumber },
+        }).catch(() => { });
+        const alertedSellers = new Set();
+        for (const item of order.items) {
+            const sellerId = item.sellerId?.toString();
+            if (sellerId && !alertedSellers.has(sellerId)) {
+                alertedSellers.add(sellerId);
+                this.alertsService.createAlert({
+                    userId: sellerId,
+                    type: contants_2.AlertType.NewOrderReceived,
+                    title: 'New Order Received! 🎉',
+                    message: `You received a new order #${order.orderNumber}. Check your orders for details.`,
+                    entityId: order._id,
+                    entityType: 'order',
+                    metadata: { orderNumber: order.orderNumber },
+                }).catch(() => { });
+            }
+        }
         return updatedOrder;
     }
     async findByPaymentReference(reference) {
@@ -403,6 +434,43 @@ let OrdersService = class OrdersService {
                 trackingNumber: order.trackingInfo?.trackingNumber,
                 carrier: order.trackingInfo?.carrier,
             });
+        }
+        const statusAlertMap = {
+            [contants_1.OrderStatus.Processing]: {
+                type: contants_2.AlertType.OrderProcessing,
+                title: 'Order Being Processed 📦',
+                message: `Your order #${order.orderNumber} is now being processed and prepared for shipping.`,
+            },
+            [contants_1.OrderStatus.Shipped]: {
+                type: contants_2.AlertType.OrderShipped,
+                title: 'Order Shipped! 🚚',
+                message: `Your order #${order.orderNumber} has been shipped${order.trackingInfo?.carrier ? ` via ${order.trackingInfo.carrier}` : ''}.${order.trackingInfo?.trackingNumber ? ` Tracking: ${order.trackingInfo.trackingNumber}` : ''}`,
+            },
+            [contants_1.OrderStatus.Delivered]: {
+                type: contants_2.AlertType.OrderDelivered,
+                title: 'Order Delivered! 📬',
+                message: `Your order #${order.orderNumber} has been delivered. Please confirm receipt to complete the order.`,
+            },
+            [contants_1.OrderStatus.Completed]: {
+                type: contants_2.AlertType.OrderCompleted,
+                title: 'Order Completed ✅',
+                message: `Your order #${order.orderNumber} is now complete. Thank you for shopping on Kraft!`,
+            },
+            [contants_1.OrderStatus.Cancelled]: {
+                type: contants_2.AlertType.OrderCancelled,
+                title: 'Order Cancelled ❌',
+                message: `Your order #${order.orderNumber} has been cancelled.${cancellationReason ? ` Reason: ${cancellationReason}` : ''}`,
+            },
+        };
+        const alertConfig = statusAlertMap[status];
+        if (alertConfig) {
+            this.alertsService.createAlert({
+                userId: order.buyerId.toString(),
+                ...alertConfig,
+                entityId: order._id,
+                entityType: 'order',
+                metadata: { orderNumber: order.orderNumber, status },
+            }).catch(() => { });
         }
         return savedOrder;
     }
@@ -604,6 +672,7 @@ exports.OrdersService = OrdersService = __decorate([
         listings_service_1.ListingsService,
         stores_service_1.StoresService,
         creators_service_1.CreatorsService,
-        notifications_service_1.NotificationsService])
+        notifications_service_1.NotificationsService,
+        alerts_service_1.AlertsService])
 ], OrdersService);
 //# sourceMappingURL=orders.service.js.map

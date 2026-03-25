@@ -174,6 +174,58 @@ export enum NotificationType {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// IN-APP ALERTS
+// ═══════════════════════════════════════════════════════════════════
+
+export enum AlertType {
+  // Auth & Account
+  Welcome = 'welcome',
+  ProfileUpdated = 'profile_updated',
+
+  // Orders — Buyer
+  OrderPlaced = 'order_placed',
+  OrderConfirmed = 'order_confirmed',
+  OrderProcessing = 'order_processing',
+  OrderShipped = 'order_shipped',
+  OrderDelivered = 'order_delivered',
+  OrderCompleted = 'order_completed',
+  OrderCancelled = 'order_cancelled',
+  OrderRefunded = 'order_refunded',
+
+  // Orders — Seller
+  NewOrderReceived = 'new_order_received',
+
+  // Listings
+  ListingSubmitted = 'listing_submitted',
+  ListingApproved = 'listing_approved',
+  ListingRejected = 'listing_rejected',
+  ListingLive = 'listing_live',
+  ListingSold = 'listing_sold',
+  ListingSoldToPlatform = 'listing_sold_to_platform',
+
+  // Payments
+  PaymentSuccessful = 'payment_successful',
+  PaymentFailed = 'payment_failed',
+
+  // Store
+  StoreCreated = 'store_created',
+  StoreVerified = 'store_verified',
+
+  // Follows
+  NewFollower = 'new_follower',
+
+  // Reviews
+  NewReview = 'new_review',
+
+  // Disputes
+  DisputeSubmitted = 'dispute_submitted',
+  DisputeResolved = 'dispute_resolved',
+
+  // System
+  SystemAnnouncement = 'system_announcement',
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // PLATFORM DEFAULTS
 // ═══════════════════════════════════════════════════════════════════
 

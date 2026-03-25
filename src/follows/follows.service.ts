@@ -27,6 +27,8 @@ import {
   QueryFollowsDto,
 } from './dto/follows.dto';
 import { PaginatedResponse } from '@common/interfaces/paginated-response.interface';
+import { AlertsService } from '../alerts/alerts.service';
+import { AlertType } from '@config/contants';
 
 @Injectable()
 export class FollowsService {
@@ -34,6 +36,7 @@ export class FollowsService {
     @InjectModel(Follow.name) private followModel: Model<FollowDocument>,
     @InjectModel(Creator.name) private creatorModel: Model<CreatorDocument>,
     @InjectModel(Store.name) private storeModel: Model<StoreDocument>,
+    private alertsService: AlertsService,
   ) {}
 
   // ─── Toggle Follow ───────────────────────────────────────
@@ -77,6 +80,33 @@ export class FollowsService {
     }
 
     const totalFollowers = await this.getFollowerCount(targetType, targetId);
+
+    // Send in-app alert to the target creator/store owner on follow
+    if (followed) {
+      try {
+        let ownerId: string | null = null;
+        let targetName = '';
+        if (targetType === FollowTargetType.Creator) {
+          const creator = await this.creatorModel.findById(targetId).select('userId username').lean().exec();
+          ownerId = creator?.userId?.toString() || null;
+          targetName = creator?.username || 'your profile';
+        } else if (targetType === FollowTargetType.Store) {
+          const store = await this.storeModel.findById(targetId).select('userId name').lean().exec();
+          ownerId = store?.userId?.toString() || null;
+          targetName = store?.name || 'your store';
+        }
+        if (ownerId && ownerId !== userId) {
+          this.alertsService.createAlert({
+            userId: ownerId,
+            type: AlertType.NewFollower,
+            title: 'New Follower!',
+            message: `Someone just followed ${targetName}. You now have ${totalFollowers} follower${totalFollowers !== 1 ? 's' : ''}.`,
+            entityId: targetId,
+            entityType: targetType === FollowTargetType.Store ? 'store' : 'user',
+          }).catch(() => {});
+        }
+      } catch {}
+    }
 
     return { followed, totalFollowers };
   }

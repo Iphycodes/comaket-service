@@ -19,11 +19,14 @@ const mongoose_2 = require("mongoose");
 const follows_shema_1 = require("./schema/follows.shema");
 const creator_schema_1 = require("../creators/schemas/creator.schema");
 const store_schema_1 = require("../stores/schemas/store.schema");
+const alerts_service_1 = require("../alerts/alerts.service");
+const contants_1 = require("../config/contants");
 let FollowsService = class FollowsService {
-    constructor(followModel, creatorModel, storeModel) {
+    constructor(followModel, creatorModel, storeModel, alertsService) {
         this.followModel = followModel;
         this.creatorModel = creatorModel;
         this.storeModel = storeModel;
+        this.alertsService = alertsService;
     }
     async toggle(userId, dto) {
         const { targetType, targetId } = dto;
@@ -49,6 +52,33 @@ let FollowsService = class FollowsService {
             followed = true;
         }
         const totalFollowers = await this.getFollowerCount(targetType, targetId);
+        if (followed) {
+            try {
+                let ownerId = null;
+                let targetName = '';
+                if (targetType === follows_shema_1.FollowTargetType.Creator) {
+                    const creator = await this.creatorModel.findById(targetId).select('userId username').lean().exec();
+                    ownerId = creator?.userId?.toString() || null;
+                    targetName = creator?.username || 'your profile';
+                }
+                else if (targetType === follows_shema_1.FollowTargetType.Store) {
+                    const store = await this.storeModel.findById(targetId).select('userId name').lean().exec();
+                    ownerId = store?.userId?.toString() || null;
+                    targetName = store?.name || 'your store';
+                }
+                if (ownerId && ownerId !== userId) {
+                    this.alertsService.createAlert({
+                        userId: ownerId,
+                        type: contants_1.AlertType.NewFollower,
+                        title: 'New Follower!',
+                        message: `Someone just followed ${targetName}. You now have ${totalFollowers} follower${totalFollowers !== 1 ? 's' : ''}.`,
+                        entityId: targetId,
+                        entityType: targetType === follows_shema_1.FollowTargetType.Store ? 'store' : 'user',
+                    }).catch(() => { });
+                }
+            }
+            catch { }
+        }
         return { followed, totalFollowers };
     }
     async check(userId, dto) {
@@ -230,6 +260,7 @@ exports.FollowsService = FollowsService = __decorate([
     __param(2, (0, mongoose_1.InjectModel)(store_schema_1.Store.name)),
     __metadata("design:paramtypes", [mongoose_2.Model,
         mongoose_2.Model,
-        mongoose_2.Model])
+        mongoose_2.Model,
+        alerts_service_1.AlertsService])
 ], FollowsService);
 //# sourceMappingURL=follows.service.js.map

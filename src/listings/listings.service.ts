@@ -47,6 +47,8 @@ import {
 import { ListingType, ListingStatus } from '@config/contants';
 import { PaginatedResponse } from '@common/interfaces/paginated-response.interface';
 import { NotificationsService } from '../notifications/notifications.service';
+import { AlertsService } from '../alerts/alerts.service';
+import { AlertType } from '@config/contants';
 
 @Injectable()
 export class ListingsService {
@@ -56,6 +58,7 @@ export class ListingsService {
     private creatorsService: CreatorsService,
     private notificationsService: NotificationsService,
     private platformSettingsService: PlatformSettingsService,
+    private alertsService: AlertsService,
   ) {}
 
   // ─── Fee / Commission Helpers ─────────────────────────────
@@ -689,6 +692,30 @@ export class ListingsService {
           listing.itemName,
           rejectionReason,
         );
+      }
+
+      // In-app alerts
+      const sellerId = listing.userId?.toString();
+      if (sellerId) {
+        if (action === 'approve') {
+          this.alertsService.createAlert({
+            userId: sellerId,
+            type: AlertType.ListingApproved,
+            title: 'Listing Approved! ✅',
+            message: `Your listing "${listing.itemName}" has been approved.${savedListing.status === ListingStatus.Live ? ' It\'s now live on the marketplace!' : ''}`,
+            entityId: listing._id,
+            entityType: 'listing',
+          }).catch(() => {});
+        } else if (action === 'reject') {
+          this.alertsService.createAlert({
+            userId: sellerId,
+            type: AlertType.ListingRejected,
+            title: 'Listing Not Approved',
+            message: `Your listing "${listing.itemName}" was not approved.${rejectionReason ? ` Reason: ${rejectionReason}` : ''}`,
+            entityId: listing._id,
+            entityType: 'listing',
+          }).catch(() => {});
+        }
       }
     }
 

@@ -1,0 +1,405 @@
+import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model, Types } from 'mongoose';
+import { Conversation, ConversationDocument } from './schemas/conversation.schema';
+import { Message, MessageDocument } from './schemas/message.schema';
+import { CreateConversationDto, SendMessageDto, QueryMessagesDto } from './dto/chat.dto';
+
+@Injectable()
+export class ChatService {
+  private readonly logger = new Logger(ChatService.name);
+
+  constructor(
+    @InjectModel(Conversation.name) private conversationModel: Model<ConversationDocument>,
+    @InjectModel(Message.name) private messageModel: Model<MessageDocument>,
+  ) {}
+
+  // Look up display info for a user (checks creator and store profiles)
+  // typeHint: if provided, prefer that type (e.g., user clicked "creator" vs "store")
+  private async getParticipantDisplayInfo(userId: string, typeHint?: 'creator' | 'store'): Promise<{
+    displayName: string;
+    avatar?: string;
+    type: 'user' | 'creator' | 'store';
+    entityId?: string;
+    username?: string;
+    isVerified?: boolean;
+    isSuperVerified?: boolean;
+  }> {
+    const db = this.conversationModel.db;
+
+    // Check if they have a creator profile
+    const creator = await db.collection('creators').findOne(
+      { userId: new Types.ObjectId(userId), isDeleted: { $ne: true } },
+      { projection: { username: 1, businessName: 1, profileImageUrl: 1, _id: 1, isVerified: 1, isSuperVerified: 1 } },
+    );
+
+    if (creator) {
+      // Fetch user's real name for creator display
+      const user = await db.collection('users').findOne(
+        { _id: new Types.ObjectId(userId) },
+        { projection: { firstName: 1, lastName: 1, avatar: 1 } },
+      );
+      const fullName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : '';
+
+      // Check if they have a store
+      const store = await db.collection('stores').findOne(
+        { userId: new Types.ObjectId(userId), isDeleted: { $ne: true } },
+        { projection: { name: 1, logo: 1, _id: 1, isVerified: 1, isSuperVerified: 1 } },
+      );
+
+      // If typeHint is 'creator' or no store exists, return creator info
+      if (typeHint === 'creator' || !store) {
+        return {
+          displayName: fullName || creator.businessName || creator.username || 'Creator',
+          avatar: creator.profileImageUrl,
+          type: 'creator',
+          entityId: creator._id.toString(),
+          username: creator.username,
+          isVerified: creator.isVerified || false,
+          isSuperVerified: creator.isSuperVerified || false,
+        };
+      }
+
+      // If typeHint is 'store' or default when store exists
+      if (store) {
+        return {
+          displayName: store.name || creator.businessName || 'Store',
+          avatar: store.logo || creator.profileImageUrl,
+          type: 'store',
+          entityId: store._id.toString(),
+          username: creator.username,
+          isVerified: store.isVerified || false,
+          isSuperVerified: store.isSuperVerified || false,
+        };
+      }
+    }
+
+    // Fallback to user info
+    const user = await db.collection('users').findOne(
+      { _id: new Types.ObjectId(userId) },
+      { projection: { firstName: 1, lastName: 1, avatar: 1 } },
+    );
+
+    return {
+      displayName: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User' : 'User',
+      avatar: user?.avatar,
+      type: 'user',
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // CONVERSATIONS
+  // ═══════════════════════════════════════════════════════════════════
+
+  async createOrGetConversation(userId: string, dto: CreateConversationDto) {
+    const participantId = dto.participantId;
+    if (userId === participantId) {
+      throw new ForbiddenException('Cannot create conversation with yourself');
+    }
+
+    const userObjId = new Types.ObjectId(userId);
+    const participantObjId = new Types.ObjectId(participantId);
+
+    // Determine context type for this conversation
+    const contextType = dto.participantType || 'user';
+
+    // Check if conversation already exists between these two users with same context
+    let conversation = await this.conversationModel
+      .findOne({
+        participants: { $all: [userObjId, participantObjId], $size: 2 },
+        contextType,
+        isDeleted: { $ne: true },
+      })
+      .populate('participants', 'firstName lastName avatar profileImageUrl username businessName')
+      .exec();
+
+    if (conversation) {
+      // If product context is provided and different, update it
+      if (dto.productContext && !conversation.productContext) {
+        conversation.productContext = {
+          listingId: new Types.ObjectId(dto.productContext.listingId),
+          itemName: dto.productContext.itemName,
+          price: dto.productContext.price,
+          image: dto.productContext.image || '',
+        };
+        await conversation.save();
+      }
+
+      // Send initial message if provided
+      if (dto.initialMessage) {
+        await this.sendMessage(conversation._id.toString(), userId, {
+          content: dto.initialMessage,
+          type: 'text',
+        });
+        // Re-fetch to get updated lastMessage
+        conversation = await this.conversationModel
+          .findById(conversation._id)
+          .populate('participants', 'firstName lastName avatar profileImageUrl username businessName')
+          .exec();
+      }
+
+      return conversation;
+    }
+
+    // Look up display info for both participants
+    const [userInfo, participantInfo] = await Promise.all([
+      this.getParticipantDisplayInfo(userId),
+      this.getParticipantDisplayInfo(participantId, dto.participantType),
+    ]);
+
+    // Create new conversation
+    const newConversation = await this.conversationModel.create({
+      participants: [userObjId, participantObjId],
+      unreadCounts: new Map([[userId, 0], [participantId, 0]]),
+      contextType,
+      participantDetails: new Map([
+        [userId, userInfo],
+        [participantId, participantInfo],
+      ]),
+      productContext: dto.productContext
+        ? {
+            listingId: new Types.ObjectId(dto.productContext.listingId),
+            itemName: dto.productContext.itemName,
+            price: dto.productContext.price,
+            image: dto.productContext.image || '',
+          }
+        : null,
+    });
+
+    // Send initial message if provided
+    if (dto.initialMessage) {
+      await this.sendMessage(newConversation._id.toString(), userId, {
+        content: dto.initialMessage,
+        type: 'text',
+      });
+    }
+
+    // Send product card message if product context exists
+    if (dto.productContext) {
+      await this.sendMessage(newConversation._id.toString(), userId, {
+        content: `Hi! I'm interested in "${dto.productContext.itemName}"`,
+        type: 'product_card',
+        productCard: {
+          listingId: dto.productContext.listingId,
+          itemName: dto.productContext.itemName,
+          price: dto.productContext.price,
+          image: dto.productContext.image || '',
+        },
+      });
+    }
+
+    return this.conversationModel
+      .findById(newConversation._id)
+      .populate('participants', 'firstName lastName avatar profileImageUrl username businessName')
+      .exec();
+  }
+
+  async getConversations(userId: string, page = 1, perPage = 20) {
+    const userObjId = new Types.ObjectId(userId);
+    const filter = {
+      participants: userObjId,
+      isDeleted: { $ne: true },
+      lastMessage: { $ne: null }, // Only show conversations with messages
+    };
+
+    const [conversations, total] = await Promise.all([
+      this.conversationModel
+        .find(filter)
+        .populate('participants', 'firstName lastName avatar profileImageUrl username businessName')
+        .sort({ updatedAt: -1 })
+        .skip((page - 1) * perPage)
+        .limit(perPage)
+        .lean()
+        .exec(),
+      this.conversationModel.countDocuments(filter).exec(),
+    ]);
+
+    return {
+      data: conversations,
+      pagination: { page, perPage, total, totalPages: Math.ceil(total / perPage) },
+    };
+  }
+
+  async getConversation(conversationId: string, userId: string) {
+    const conversation = await this.conversationModel
+      .findById(conversationId)
+      .populate('participants', 'firstName lastName avatar profileImageUrl username businessName')
+      .exec();
+
+    if (!conversation) throw new NotFoundException('Conversation not found');
+
+    const isParticipant = conversation.participants.some(
+      (p: any) => p._id?.toString() === userId || p.toString() === userId,
+    );
+    if (!isParticipant) throw new ForbiddenException('Not a participant');
+
+    return conversation;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // MESSAGES
+  // ═══════════════════════════════════════════════════════════════════
+
+  async sendMessage(conversationId: string, senderId: string, dto: SendMessageDto) {
+    const conversation = await this.conversationModel.findById(conversationId).exec();
+    if (!conversation) throw new NotFoundException('Conversation not found');
+
+    const isParticipant = conversation.participants.some(
+      (p) => p.toString() === senderId,
+    );
+    if (!isParticipant) throw new ForbiddenException('Not a participant');
+
+    const message = await this.messageModel.create({
+      conversationId: new Types.ObjectId(conversationId),
+      senderId: new Types.ObjectId(senderId),
+      content: dto.content,
+      type: dto.type || 'text',
+      productCard: dto.productCard
+        ? {
+            listingId: new Types.ObjectId(dto.productCard.listingId),
+            itemName: dto.productCard.itemName,
+            price: dto.productCard.price,
+            image: dto.productCard.image || '',
+            storeName: dto.productCard.storeName || '',
+          }
+        : null,
+      attachments: dto.attachments || [],
+      readBy: [new Types.ObjectId(senderId)], // Sender has "read" their own message
+    });
+
+    // Update conversation: lastMessage + increment unread for other participants
+    const otherParticipants = conversation.participants.filter(
+      (p) => p.toString() !== senderId,
+    );
+
+    const unreadUpdates: Record<string, any> = {};
+    for (const p of otherParticipants) {
+      unreadUpdates[`unreadCounts.${p.toString()}`] = 1;
+    }
+
+    await this.conversationModel.findByIdAndUpdate(conversationId, {
+      lastMessage: {
+        content: dto.content,
+        senderId: new Types.ObjectId(senderId),
+        type: dto.type || 'text',
+        createdAt: new Date(),
+      },
+      $inc: unreadUpdates,
+    }).exec();
+
+    return message;
+  }
+
+  async getMessages(conversationId: string, userId: string, dto: QueryMessagesDto) {
+    // Verify participant
+    const conversation = await this.conversationModel.findById(conversationId).exec();
+    if (!conversation) throw new NotFoundException('Conversation not found');
+
+    const isParticipant = conversation.participants.some(
+      (p) => p.toString() === userId,
+    );
+    if (!isParticipant) throw new ForbiddenException('Not a participant');
+
+    const { page = 1, perPage = 50, before } = dto;
+    const filter: Record<string, any> = {
+      conversationId: new Types.ObjectId(conversationId),
+      isDeleted: { $ne: true },
+    };
+
+    if (before) {
+      filter.createdAt = { $lt: new Date(before) };
+    }
+
+    const [messages, total] = await Promise.all([
+      this.messageModel
+        .find(filter)
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * perPage)
+        .limit(perPage)
+        .lean()
+        .exec(),
+      this.messageModel.countDocuments(filter).exec(),
+    ]);
+
+    return {
+      data: messages.reverse(), // Return in chronological order
+      pagination: { page, perPage, total, totalPages: Math.ceil(total / perPage) },
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // READ RECEIPTS & UNREAD COUNTS
+  // ═══════════════════════════════════════════════════════════════════
+
+  async markAsRead(conversationId: string, userId: string) {
+    const userObjId = new Types.ObjectId(userId);
+
+    // Mark all unread messages in this conversation as read by this user
+    await this.messageModel.updateMany(
+      {
+        conversationId: new Types.ObjectId(conversationId),
+        senderId: { $ne: userObjId },
+        readBy: { $ne: userObjId },
+      },
+      { $addToSet: { readBy: userObjId } },
+    ).exec();
+
+    // Reset unread count for this user (don't update updatedAt — that should only change on new messages)
+    await this.conversationModel.findByIdAndUpdate(
+      conversationId,
+      { $set: { [`unreadCounts.${userId}`]: 0 } },
+      { timestamps: false },
+    ).exec();
+
+    return { success: true };
+  }
+
+  async getTotalUnreadCount(userId: string): Promise<number> {
+    const conversations = await this.conversationModel
+      .find({
+        participants: new Types.ObjectId(userId),
+        isDeleted: { $ne: true },
+      })
+      .select('unreadCounts')
+      .lean()
+      .exec();
+
+    let total = 0;
+    for (const conv of conversations) {
+      const counts = conv.unreadCounts as any;
+      total += counts?.[userId] || counts?.get?.(userId) || 0;
+    }
+    return total;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // SEARCH
+  // ═══════════════════════════════════════════════════════════════════
+
+  async searchConversations(userId: string, query: string) {
+    if (!query || query.trim().length < 2) return [];
+
+    const userObjId = new Types.ObjectId(userId);
+
+    // Find conversations where participant name matches
+    const conversations = await this.conversationModel
+      .find({
+        participants: userObjId,
+        isDeleted: { $ne: true },
+      })
+      .populate('participants', 'firstName lastName avatar profileImageUrl username businessName')
+      .sort({ updatedAt: -1 })
+      .limit(20)
+      .lean()
+      .exec();
+
+    const q = query.toLowerCase();
+    return conversations.filter((conv: any) =>
+      conv.participants.some(
+        (p: any) =>
+          p._id.toString() !== userId &&
+          (`${p.firstName || ''} ${p.lastName || ''}`).toLowerCase().includes(q),
+      ),
+    );
+  }
+}

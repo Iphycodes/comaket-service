@@ -94,6 +94,34 @@ export declare enum NotificationType {
     NewReview = "new_review",
     SystemAlert = "system_alert"
 }
+export declare enum AlertType {
+    Welcome = "welcome",
+    ProfileUpdated = "profile_updated",
+    OrderPlaced = "order_placed",
+    OrderConfirmed = "order_confirmed",
+    OrderProcessing = "order_processing",
+    OrderShipped = "order_shipped",
+    OrderDelivered = "order_delivered",
+    OrderCompleted = "order_completed",
+    OrderCancelled = "order_cancelled",
+    OrderRefunded = "order_refunded",
+    NewOrderReceived = "new_order_received",
+    ListingSubmitted = "listing_submitted",
+    ListingApproved = "listing_approved",
+    ListingRejected = "listing_rejected",
+    ListingLive = "listing_live",
+    ListingSold = "listing_sold",
+    ListingSoldToPlatform = "listing_sold_to_platform",
+    PaymentSuccessful = "payment_successful",
+    PaymentFailed = "payment_failed",
+    StoreCreated = "store_created",
+    StoreVerified = "store_verified",
+    NewFollower = "new_follower",
+    NewReview = "new_review",
+    DisputeSubmitted = "dispute_submitted",
+    DisputeResolved = "dispute_resolved",
+    SystemAnnouncement = "system_announcement"
+}
 export declare const DEFAULT_COMMISSION_RATES: {
     readonly self_listing: 5;
     readonly consignment: 15;

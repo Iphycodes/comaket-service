@@ -47,6 +47,8 @@ import { ShippingAddressesModule } from './shipping-addresses/shipping-addresses
 import { PlatformSettingsModule } from './platform-settings/platform-settings.module';
 import { DeliveryZonesModule } from './delivery-zones/delivery-zones.module';
 import { DisputesModule } from './disputes/disputes.module';
+import { AlertsModule } from './alerts/alerts.module';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
   imports: [
@@ -113,6 +115,8 @@ import { DisputesModule } from './disputes/disputes.module';
     PlatformSettingsModule,
     DeliveryZonesModule,
     DisputesModule,
+    AlertsModule,
+    ChatModule,
   ],
   controllers: [AppController],
 })

@@ -95,6 +95,14 @@ __decorate([
     __metadata("design:type", Number)
 ], PlatformSettings.prototype, "maxListingImages", void 0);
 __decorate([
+    (0, mongoose_1.Prop)({ type: Number, default: 15 * 1024 * 1024 }),
+    __metadata("design:type", Number)
+], PlatformSettings.prototype, "maxFileSizeBytes", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: Number, default: 10 }),
+    __metadata("design:type", Number)
+], PlatformSettings.prototype, "maxFilesPerUpload", void 0);
+__decorate([
     (0, mongoose_1.Prop)({ default: 72 }),
     __metadata("design:type", Number)
 ], PlatformSettings.prototype, "maxReturnHoursBeforeAutoComplete", void 0);

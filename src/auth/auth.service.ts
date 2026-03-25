@@ -44,6 +44,8 @@ import {
 import { AuthProvider } from '@config/contants';
 import { UserDocument } from '../users/schemas/user.schema';
 import { NotificationsService } from '../notifications/notifications.service';
+import { AlertsService } from '../alerts/alerts.service';
+import { AlertType } from '@config/contants';
 
 @Injectable()
 export class AuthService {
@@ -52,6 +54,7 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
     private notificationsService: NotificationsService,
+    private alertsService: AlertsService,
   ) {}
 
   // ─── Helpers ─────────────────────────────────────────────
@@ -312,6 +315,16 @@ export class AuthService {
 
     // Send welcome email
     this.notificationsService.sendWelcome(user.email, user.firstName);
+
+    // In-app welcome alert
+    this.alertsService.createAlert({
+      userId: user._id,
+      type: AlertType.Welcome,
+      title: 'Welcome to Kraft! 🎉',
+      message: `Hi ${user.firstName}, welcome to Kraft! Explore the marketplace, discover amazing Nigerian brands, and start shopping or selling today.`,
+      entityType: 'user',
+      entityId: user._id,
+    }).catch(() => {}); // non-blocking
 
     return { message: 'Email verified successfully' };
   }

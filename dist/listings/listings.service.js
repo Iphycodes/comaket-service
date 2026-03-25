@@ -22,13 +22,16 @@ const creators_service_1 = require("../creators/creators.service");
 const platform_settings_service_1 = require("../platform-settings/platform-settings.service");
 const contants_1 = require("../config/contants");
 const notifications_service_1 = require("../notifications/notifications.service");
+const alerts_service_1 = require("../alerts/alerts.service");
+const contants_2 = require("../config/contants");
 let ListingsService = class ListingsService {
-    constructor(listingModel, storesService, creatorsService, notificationsService, platformSettingsService) {
+    constructor(listingModel, storesService, creatorsService, notificationsService, platformSettingsService, alertsService) {
         this.listingModel = listingModel;
         this.storesService = storesService;
         this.creatorsService = creatorsService;
         this.notificationsService = notificationsService;
         this.platformSettingsService = platformSettingsService;
+        this.alertsService = alertsService;
     }
     async isFreeListing() {
         return this.platformSettingsService.isFreeListing();
@@ -382,6 +385,29 @@ let ListingsService = class ListingsService {
             else if (action === 'reject' && rejectionReason) {
                 this.notificationsService.sendListingRejected(seller.email, seller.firstName, listing.itemName, rejectionReason);
             }
+            const sellerId = listing.userId?.toString();
+            if (sellerId) {
+                if (action === 'approve') {
+                    this.alertsService.createAlert({
+                        userId: sellerId,
+                        type: contants_2.AlertType.ListingApproved,
+                        title: 'Listing Approved! ✅',
+                        message: `Your listing "${listing.itemName}" has been approved.${savedListing.status === contants_1.ListingStatus.Live ? ' It\'s now live on the marketplace!' : ''}`,
+                        entityId: listing._id,
+                        entityType: 'listing',
+                    }).catch(() => { });
+                }
+                else if (action === 'reject') {
+                    this.alertsService.createAlert({
+                        userId: sellerId,
+                        type: contants_2.AlertType.ListingRejected,
+                        title: 'Listing Not Approved',
+                        message: `Your listing "${listing.itemName}" was not approved.${rejectionReason ? ` Reason: ${rejectionReason}` : ''}`,
+                        entityId: listing._id,
+                        entityType: 'listing',
+                    }).catch(() => { });
+                }
+            }
         }
         return savedListing;
     }
@@ -687,6 +713,7 @@ exports.ListingsService = ListingsService = __decorate([
         stores_service_1.StoresService,
         creators_service_1.CreatorsService,
         notifications_service_1.NotificationsService,
-        platform_settings_service_1.PlatformSettingsService])
+        platform_settings_service_1.PlatformSettingsService,
+        alerts_service_1.AlertsService])
 ], ListingsService);
 //# sourceMappingURL=listings.service.js.map

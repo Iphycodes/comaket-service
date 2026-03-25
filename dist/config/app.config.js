@@ -15,7 +15,6 @@ exports.default = (0, config_1.registerAs)('app', () => ({
     google: {
         clientId: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        callbackUrl: process.env.GOOGLE_CALLBACK_URL,
     },
     paystack: {
         secretKey: process.env.PAYSTACK_SECRET_KEY,
@@ -23,7 +22,6 @@ exports.default = (0, config_1.registerAs)('app', () => ({
         baseUrl: process.env.PAYSTACK_BASE_URL || 'https://api.paystack.co',
         callbackUrl: process.env.PAYSTACK_CALLBACK_URL ||
             'http://localhost:3000/payment/callback',
-        webhookSecret: process.env.PAYSTACK_WEBHOOK_SECRET,
     },
     opay: {
         secretKey: process.env.OPAY_SECRET_KEY,
@@ -58,8 +56,6 @@ exports.default = (0, config_1.registerAs)('app', () => ({
         consignmentCommissionCapKobo: parseInt(process.env.CONSIGNMENT_COMMISSION_CAP_KOBO, 10) || 2000000,
     },
     upload: {
-        maxFileSize: parseInt(process.env.MAX_FILE_SIZE, 10) || 5 * 1024 * 1024,
-        maxFiles: parseInt(process.env.MAX_FILES, 10) || 10,
         allowedMimeTypes: [
             'image/jpeg',
             'image/png',

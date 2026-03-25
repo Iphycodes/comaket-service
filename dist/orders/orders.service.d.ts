@@ -6,13 +6,15 @@ import { CreateOrderDto, UpdateOrderStatusDto, QueryOrdersDto } from './dto/orde
 import { PaginatedResponse } from '@common/interfaces/paginated-response.interface';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ListingsService } from 'src/listings/listings.service';
+import { AlertsService } from '../alerts/alerts.service';
 export declare class OrdersService {
     private orderModel;
     private listingsService;
     private storesService;
     private creatorsService;
     private notificationsService;
-    constructor(orderModel: Model<OrderDocument>, listingsService: ListingsService, storesService: StoresService, creatorsService: CreatorsService, notificationsService: NotificationsService);
+    private alertsService;
+    constructor(orderModel: Model<OrderDocument>, listingsService: ListingsService, storesService: StoresService, creatorsService: CreatorsService, notificationsService: NotificationsService, alertsService: AlertsService);
     private generateOrderNumber;
     private calculateRevenueSplit;
     create(buyerId: string, createOrderDto: CreateOrderDto): Promise<OrderDocument>;

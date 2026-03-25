@@ -21,6 +21,8 @@ export declare class PlatformSettings {
     businessPlanActive: boolean;
     minListingPriceKobo: number;
     maxListingImages: number;
+    maxFileSizeBytes: number;
+    maxFilesPerUpload: number;
     maxReturnHoursBeforeAutoComplete: number;
 }
 export declare const PlatformSettingsSchema: import("mongoose").Schema<PlatformSettings, import("mongoose").Model<PlatformSettings, any, any, any, import("mongoose").Document<unknown, any, PlatformSettings> & PlatformSettings & {

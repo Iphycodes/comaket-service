@@ -12,14 +12,12 @@ declare const _default: (() => {
     google: {
         clientId: string;
         clientSecret: string;
-        callbackUrl: string;
     };
     paystack: {
         secretKey: string;
         publicKey: string;
         baseUrl: string;
         callbackUrl: string;
-        webhookSecret: string;
     };
     opay: {
         secretKey: string;
@@ -51,8 +49,6 @@ declare const _default: (() => {
         consignmentCommissionCapKobo: number;
     };
     upload: {
-        maxFileSize: number;
-        maxFiles: number;
         allowedMimeTypes: string[];
     };
 }) & import("@nestjs/config").ConfigFactoryKeyHost<{
@@ -69,14 +65,12 @@ declare const _default: (() => {
     google: {
         clientId: string;
         clientSecret: string;
-        callbackUrl: string;
     };
     paystack: {
         secretKey: string;
         publicKey: string;
         baseUrl: string;
         callbackUrl: string;
-        webhookSecret: string;
     };
     opay: {
         secretKey: string;
@@ -108,8 +102,6 @@ declare const _default: (() => {
         consignmentCommissionCapKobo: number;
     };
     upload: {
-        maxFileSize: number;
-        maxFiles: number;
         allowedMimeTypes: string[];
     };
 }>;
