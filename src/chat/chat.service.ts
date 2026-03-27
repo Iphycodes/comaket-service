@@ -114,19 +114,31 @@ export class ChatService {
       .exec();
 
     if (conversation) {
-      // If product context is provided and different, update it
-      if (dto.productContext && !conversation.productContext) {
-        conversation.productContext = {
-          listingId: new Types.ObjectId(dto.productContext.listingId),
-          itemName: dto.productContext.itemName,
-          price: dto.productContext.price,
-          image: dto.productContext.image || '',
-        };
-        await conversation.save();
+      // Always send product interest message when productContext is provided
+      if (dto.productContext) {
+        const priceFormatted = dto.productContext.price
+          ? `₦${(dto.productContext.price / 100).toLocaleString()}`
+          : '';
+        const productMsg = `Hi! I'm interested in "${dto.productContext.itemName}"${priceFormatted ? ` — ${priceFormatted}` : ''}`;
+        await this.sendMessage(conversation._id.toString(), userId, {
+          content: productMsg,
+          type: 'product',
+          metadata: {
+            listingId: dto.productContext.listingId,
+            itemName: dto.productContext.itemName,
+            price: dto.productContext.price,
+            image: dto.productContext.image,
+          },
+        });
+        // Re-fetch to get updated lastMessage
+        conversation = await this.conversationModel
+          .findById(conversation._id)
+          .populate('participants', 'firstName lastName avatar profileImageUrl username businessName')
+          .exec();
       }
 
-      // Send initial message if provided
-      if (dto.initialMessage) {
+      // Send initial message if provided (separate from product message)
+      if (dto.initialMessage && !dto.productContext) {
         await this.sendMessage(conversation._id.toString(), userId, {
           content: dto.initialMessage,
           type: 'text',

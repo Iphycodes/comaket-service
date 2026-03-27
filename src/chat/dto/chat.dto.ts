@@ -84,8 +84,8 @@ export class SendMessageDto {
   @IsString()
   content: string;
 
-  @ApiPropertyOptional({ enum: ['text', 'image', 'product_card'] })
-  @IsEnum(['text', 'image', 'product_card'])
+  @ApiPropertyOptional({ enum: ['text', 'image', 'product_card', 'product'] })
+  @IsEnum(['text', 'image', 'product_card', 'product'])
   @IsOptional()
   type?: string;
 
@@ -100,6 +100,10 @@ export class SendMessageDto {
   @IsString({ each: true })
   @IsOptional()
   attachments?: string[];
+
+  @ApiPropertyOptional({ description: 'Additional metadata for the message' })
+  @IsOptional()
+  metadata?: Record<string, any>;
 }
 
 // ─── Query Messages ────────────────────────────────────────────────
